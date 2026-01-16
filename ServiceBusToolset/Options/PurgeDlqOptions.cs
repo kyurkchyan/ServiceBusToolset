@@ -41,6 +41,12 @@ public class PurgeDlqOptions
             HelpText = "Enable verbose output")]
     public bool Verbose { get; set; }
 
+    [Option('i',
+            "interactive",
+            Default = false,
+            HelpText = "Interactive mode: show categories and select which to purge")]
+    public bool Interactive { get; set; }
+
     public bool IsQueueMode => !string.IsNullOrEmpty(Queue);
     public bool IsSubscriptionMode => !string.IsNullOrEmpty(Topic) && !string.IsNullOrEmpty(Subscription);
 

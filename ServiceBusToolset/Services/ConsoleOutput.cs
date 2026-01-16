@@ -1,3 +1,5 @@
+using Spectre.Console;
+
 namespace ServiceBusToolset.Services;
 
 public class ConsoleOutput : IConsoleOutput
@@ -44,4 +46,25 @@ public class ConsoleOutput : IConsoleOutput
         Console.Write($"\r{message}");
         Console.ResetColor();
     }
+
+    public void Table(IEnumerable<string> headers, IEnumerable<string[]> rows)
+    {
+        var table = new Table();
+        table.Border(TableBorder.Rounded);
+        table.Expand();
+
+        foreach (var header in headers)
+        {
+            table.AddColumn(new TableColumn(header));
+        }
+
+        foreach (var row in rows)
+        {
+            table.AddRow(row.Select(Markup.Escape).ToArray());
+        }
+
+        AnsiConsole.Write(table);
+    }
+
+    public string? ReadLine() => Console.ReadLine();
 }

@@ -8,4 +8,6 @@ public interface IConsoleOutput
     void Error(string message);
     void Verbose(string message, bool isVerbose);
     void Progress(string message);
+    void Table(IEnumerable<string> headers, IEnumerable<string[]> rows);
+    string? ReadLine();
 }
