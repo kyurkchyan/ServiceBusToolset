@@ -486,6 +486,9 @@ public class PurgeDlqCommand(IServiceBusClientFactory clientFactory, IConsoleOut
 
             emptyBatches = 0;
 
+            var toComplete = new List<ServiceBusReceivedMessage>();
+            var toAbandon = new List<ServiceBusReceivedMessage>();
+
             foreach (var message in messages)
             {
                 var label = message.Subject ?? "(none)";
@@ -494,15 +497,22 @@ public class PurgeDlqCommand(IServiceBusClientFactory clientFactory, IConsoleOut
 
                 if (selectedCategories.Contains(key))
                 {
-                    await receiver.CompleteMessageAsync(message, cancellationToken);
-                    totalDeleted++;
+                    toComplete.Add(message);
                 }
                 else
                 {
-                    await receiver.AbandonMessageAsync(message, cancellationToken: cancellationToken);
-                    totalSkipped++;
+                    toAbandon.Add(message);
                 }
             }
+
+            // Process completions and abandons in parallel
+            var tasks = new List<Task>();
+            tasks.AddRange(toComplete.Select(m => receiver.CompleteMessageAsync(m, cancellationToken)));
+            tasks.AddRange(toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken: cancellationToken)));
+            await Task.WhenAll(tasks);
+
+            totalDeleted += toComplete.Count;
+            totalSkipped += toAbandon.Count;
 
             Output.Progress($"Purged {totalDeleted} messages (skipped {totalSkipped})...");
         }
