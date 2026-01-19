@@ -16,6 +16,8 @@ dotnet run -- resubmit-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscript
 | `--queue` | `-q` | Queue name |
 | `--topic` | `-t` | Topic name (requires `--subscription`) |
 | `--subscription` | `-s` | Subscription name (requires `--topic`) |
+| `--target-queue` | | Target queue to resubmit to (defaults to source queue) |
+| `--target-topic` | | Target topic to resubmit to (defaults to source topic) |
 | `--before` | | Only resubmit messages enqueued before this UTC datetime (ISO 8601) |
 | `--dry-run` | | Preview message count without resubmitting |
 | `--interactive` | `-i` | Interactive mode: view and select categories to resubmit |
@@ -26,11 +28,21 @@ dotnet run -- resubmit-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscript
 ### Resubmit All Messages
 
 ```bash
-# From a queue DLQ back to the queue
+# From a queue DLQ back to the same queue
 dotnet run -- resubmit-dlq -n mynamespace.servicebus.windows.net -q myqueue
 
-# From a topic subscription DLQ back to the topic
+# From a topic subscription DLQ back to the same topic
 dotnet run -- resubmit-dlq -n mynamespace.servicebus.windows.net -t mytopic -s mysub
+```
+
+### Resubmit to a Different Destination
+
+```bash
+# Resubmit from queue DLQ to a different queue
+dotnet run -- resubmit-dlq -n mynamespace.servicebus.windows.net -q myqueue --target-queue other-queue
+
+# Resubmit from subscription DLQ to a different topic
+dotnet run -- resubmit-dlq -n mynamespace.servicebus.windows.net -t mytopic -s mysub --target-topic other-topic
 ```
 
 ### Dry Run

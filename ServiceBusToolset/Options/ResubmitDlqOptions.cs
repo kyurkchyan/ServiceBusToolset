@@ -47,8 +47,20 @@ public class ResubmitDlqOptions
             HelpText = "Interactive mode: show categories and select which to resubmit")]
     public bool Interactive { get; set; }
 
+    [Option("target-queue", HelpText = "Target queue to resubmit messages to (defaults to source queue)")]
+    public string? TargetQueue { get; set; }
+
+    [Option("target-topic", HelpText = "Target topic to resubmit messages to (defaults to source topic)")]
+    public string? TargetTopic { get; set; }
+
     public bool IsQueueMode => !string.IsNullOrEmpty(Queue);
     public bool IsSubscriptionMode => !string.IsNullOrEmpty(Topic) && !string.IsNullOrEmpty(Subscription);
+
+    /// <summary>
+    /// Gets the effective target entity name for resubmission.
+    /// Returns target-queue/target-topic if specified, otherwise falls back to source queue/topic.
+    /// </summary>
+    public string EffectiveTarget => TargetQueue ?? TargetTopic ?? Queue ?? Topic!;
 
     public string? Validate()
     {
@@ -65,6 +77,11 @@ public class ResubmitDlqOptions
         if (!string.IsNullOrEmpty(Subscription) && string.IsNullOrEmpty(Topic))
         {
             return "When --subscription is specified, --topic is also required.";
+        }
+
+        if (!string.IsNullOrEmpty(TargetQueue) && !string.IsNullOrEmpty(TargetTopic))
+        {
+            return "Cannot specify both --target-queue and --target-topic.";
         }
 
         return null;

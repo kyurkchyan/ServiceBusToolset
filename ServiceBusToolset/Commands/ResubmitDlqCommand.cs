@@ -145,7 +145,8 @@ public class ResubmitDlqCommand(
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        Output.Info($"Resubmitting DLQ messages for {entityDescription}...");
+        var targetInfo = GetTargetInfo(options);
+        Output.Info($"Resubmitting DLQ messages for {entityDescription}{targetInfo}...");
 
         if (options.BeforeEnqueueTime.HasValue)
         {
@@ -166,8 +167,9 @@ public class ResubmitDlqCommand(
                                                      options.Topic,
                                                      options.Subscription,
                                                      ServiceBusReceiveMode.PeekLock);
-        await using var sender = CreateSender(client, options.Queue, options.Topic);
+        await using var sender = CreateSender(client, options.EffectiveTarget);
 
+        var targetInfo = GetTargetInfo(options);
         var totalResubmitted = 0;
         var emptyBatches = 0;
 
@@ -196,7 +198,7 @@ public class ResubmitDlqCommand(
         }
 
         Console.WriteLine();
-        Output.Success($"Resubmitted {totalResubmitted} messages from DLQ for {entityDescription}");
+        Output.Success($"Resubmitted {totalResubmitted} messages from DLQ for {entityDescription}{targetInfo}");
         return 0;
     }
 
@@ -211,8 +213,9 @@ public class ResubmitDlqCommand(
                                                      options.Topic,
                                                      options.Subscription,
                                                      ServiceBusReceiveMode.PeekLock);
-        await using var sender = CreateSender(client, options.Queue, options.Topic);
+        await using var sender = CreateSender(client, options.EffectiveTarget);
 
+        var targetInfo = GetTargetInfo(options);
         var totalResubmitted = 0;
         var totalSkipped = 0;
         var emptyBatches = 0;
@@ -267,7 +270,7 @@ public class ResubmitDlqCommand(
         }
 
         Console.WriteLine();
-        Output.Success($"Resubmitted {totalResubmitted} messages from DLQ for {entityDescription} (skipped {totalSkipped} newer messages)");
+        Output.Success($"Resubmitted {totalResubmitted} messages from DLQ for {entityDescription}{targetInfo} (skipped {totalSkipped} newer messages)");
         return 0;
     }
 
@@ -320,12 +323,13 @@ public class ResubmitDlqCommand(
             totalToResubmit += cat.Count;
         }
 
-        Output.Info($"Resubmitting {totalToResubmit} messages from {selectedIndices.Count} categories...");
+        var targetInfo = GetTargetInfo(options);
+        Output.Info($"Resubmitting {totalToResubmit} messages from {selectedIndices.Count} categories{targetInfo}...");
 
         var totalResubmitted = await ResubmitByCategoriesAsync(client, options, selectedCategories, cancellationToken);
 
         Console.WriteLine();
-        Output.Success($"Resubmitted {totalResubmitted} messages from DLQ for {entityDescription}.");
+        Output.Success($"Resubmitted {totalResubmitted} messages from DLQ for {entityDescription}{targetInfo}.");
         return 0;
     }
 
@@ -414,7 +418,7 @@ public class ResubmitDlqCommand(
                                                      options.Topic,
                                                      options.Subscription,
                                                      ServiceBusReceiveMode.PeekLock);
-        await using var sender = CreateSender(client, options.Queue, options.Topic);
+        await using var sender = CreateSender(client, options.EffectiveTarget);
 
         var totalResubmitted = 0;
         var totalSkipped = 0;
@@ -498,5 +502,17 @@ public class ResubmitDlqCommand(
         return message;
     }
 
-    private static ServiceBusSender CreateSender(ServiceBusClient client, string? queueName, string? topicName) => client.CreateSender(!string.IsNullOrEmpty(queueName) ? queueName : topicName!);
+    private static ServiceBusSender CreateSender(ServiceBusClient client, string targetEntity) => client.CreateSender(targetEntity);
+
+    private static string GetTargetInfo(ResubmitDlqOptions options)
+    {
+        var hasCustomTarget = !string.IsNullOrEmpty(options.TargetQueue) || !string.IsNullOrEmpty(options.TargetTopic);
+        if (!hasCustomTarget)
+        {
+            return string.Empty;
+        }
+
+        var targetType = !string.IsNullOrEmpty(options.TargetQueue) ? "queue" : "topic";
+        return $" to {targetType} '{options.EffectiveTarget}'";
+    }
 }
