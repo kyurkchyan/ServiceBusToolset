@@ -6,16 +6,16 @@ using ServiceBusToolset.Services;
 
 namespace ServiceBusToolset.Commands;
 
-public class PurgeDlqCommand(
+public class ResubmitDlqCommand(
     IServiceBusClientFactory clientFactory,
     IConsoleOutput output,
-    IDlqCategoryAnalyzer categoryAnalyzer) : BaseCommand<PurgeDlqOptions>(clientFactory, output), ICommand<PurgeDlqOptions>
+    IDlqCategoryAnalyzer categoryAnalyzer) : BaseCommand<ResubmitDlqOptions>(clientFactory, output), ICommand<ResubmitDlqOptions>
 {
     private const int MaxBatchSize = 100;
     private static readonly TimeSpan MaxWaitTime = TimeSpan.FromSeconds(5);
     private const int EmptyBatchThreshold = 3;
 
-    public async Task<int> ExecuteAsync(PurgeDlqOptions options, CancellationToken cancellationToken = default)
+    public async Task<int> ExecuteAsync(ResubmitDlqOptions options, CancellationToken cancellationToken = default)
     {
         var validationError = options.Validate();
         if (validationError != null)
@@ -32,24 +32,15 @@ public class PurgeDlqCommand(
 
             if (options.DryRun)
             {
-                return await ExecuteDryRunAsync(client,
-                                                options,
-                                                entityDescription,
-                                                cancellationToken);
+                return await ExecuteDryRunAsync(client, options, entityDescription, cancellationToken);
             }
 
             if (options.Interactive)
             {
-                return await ExecuteInteractivePurgeAsync(client,
-                                                          options,
-                                                          entityDescription,
-                                                          cancellationToken);
+                return await ExecuteInteractiveResubmitAsync(client, options, entityDescription, cancellationToken);
             }
 
-            return await ExecutePurgeAsync(client,
-                                           options,
-                                           entityDescription,
-                                           cancellationToken);
+            return await ExecuteResubmitAsync(client, options, entityDescription, cancellationToken);
         }
         catch (AuthenticationFailedException ex)
         {
@@ -72,7 +63,7 @@ public class PurgeDlqCommand(
 
     private async Task<int> ExecuteDryRunAsync(
         ServiceBusClient client,
-        PurgeDlqOptions options,
+        ResubmitDlqOptions options,
         string entityDescription,
         CancellationToken cancellationToken)
     {
@@ -80,16 +71,14 @@ public class PurgeDlqCommand(
 
         if (options.BeforeEnqueueTime.HasValue)
         {
-            return await ExecuteFilteredDryRunAsync(client,
-                                                    options,
-                                                    cancellationToken);
+            return await ExecuteFilteredDryRunAsync(client, options, cancellationToken);
         }
 
         return await ExecuteFastDryRunAsync(options, entityDescription, cancellationToken);
     }
 
     private async Task<int> ExecuteFastDryRunAsync(
-        PurgeDlqOptions options,
+        ResubmitDlqOptions options,
         string entityDescription,
         CancellationToken cancellationToken)
     {
@@ -113,7 +102,7 @@ public class PurgeDlqCommand(
 
     private async Task<int> ExecuteFilteredDryRunAsync(
         ServiceBusClient client,
-        PurgeDlqOptions options,
+        ResubmitDlqOptions options,
         CancellationToken cancellationToken)
     {
         Output.Verbose("Using slow count due to --before filter", options.Verbose);
@@ -130,7 +119,7 @@ public class PurgeDlqCommand(
 
         while (!cancellationToken.IsCancellationRequested && emptyBatches < EmptyBatchThreshold)
         {
-            var messages = await receiver.PeekMessagesAsync(MaxBatchSize, cancellationToken:cancellationToken);
+            var messages = await receiver.PeekMessagesAsync(MaxBatchSize, cancellationToken: cancellationToken);
 
             if (messages.Count == 0)
             {
@@ -150,71 +139,25 @@ public class PurgeDlqCommand(
         return 0;
     }
 
-    private async Task<int> ExecutePurgeAsync(
+    private async Task<int> ExecuteResubmitAsync(
         ServiceBusClient client,
-        PurgeDlqOptions options,
+        ResubmitDlqOptions options,
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        Output.Info($"Purging DLQ for {entityDescription}...");
+        Output.Info($"Resubmitting DLQ messages for {entityDescription}...");
 
         if (options.BeforeEnqueueTime.HasValue)
         {
-            return await ExecuteFilteredPurgeAsync(client,
-                                                   options,
-                                                   entityDescription,
-                                                   cancellationToken);
+            return await ExecuteFilteredResubmitAsync(client, options, entityDescription, cancellationToken);
         }
 
-        return await ExecuteFullPurgeAsync(client,
-                                           options,
-                                           entityDescription,
-                                           cancellationToken);
+        return await ExecuteFullResubmitAsync(client, options, entityDescription, cancellationToken);
     }
 
-    private async Task<int> ExecuteFullPurgeAsync(
+    private async Task<int> ExecuteFullResubmitAsync(
         ServiceBusClient client,
-        PurgeDlqOptions options,
-        string entityDescription,
-        CancellationToken cancellationToken)
-    {
-        await using var receiver = CreateDlqReceiver(client,
-                                                     options.Queue,
-                                                     options.Topic,
-                                                     options.Subscription,
-                                                     ServiceBusReceiveMode.ReceiveAndDelete);
-
-        var totalDeleted = 0;
-        var emptyBatches = 0;
-
-        while (!cancellationToken.IsCancellationRequested && emptyBatches < EmptyBatchThreshold)
-        {
-            var messages = await receiver.ReceiveMessagesAsync(MaxBatchSize,
-                                                               MaxWaitTime,
-                                                               cancellationToken);
-
-            if (messages.Count == 0)
-            {
-                emptyBatches++;
-                Output.Verbose($"Empty batch {emptyBatches}/{EmptyBatchThreshold}", options.Verbose);
-                continue;
-            }
-
-            emptyBatches = 0;
-            totalDeleted += messages.Count;
-
-            Output.Progress($"Purged {totalDeleted} messages...");
-            Output.Verbose($"\nReceived batch of {messages.Count} messages", options.Verbose);
-        }
-
-        Console.WriteLine();
-        Output.Success($"Purged {totalDeleted} messages from DLQ for {entityDescription}");
-        return 0;
-    }
-
-    private async Task<int> ExecuteFilteredPurgeAsync(
-        ServiceBusClient client,
-        PurgeDlqOptions options,
+        ResubmitDlqOptions options,
         string entityDescription,
         CancellationToken cancellationToken)
     {
@@ -223,19 +166,14 @@ public class PurgeDlqCommand(
                                                      options.Topic,
                                                      options.Subscription,
                                                      ServiceBusReceiveMode.PeekLock);
+        await using var sender = CreateSender(client, options.Queue, options.Topic);
 
-        var totalDeleted = 0;
-        var totalSkipped = 0;
+        var totalResubmitted = 0;
         var emptyBatches = 0;
-        var beforeTime = options.BeforeEnqueueTime!.Value;
-
-        Output.Verbose($"Filtering messages enqueued before {beforeTime:O}", options.Verbose);
 
         while (!cancellationToken.IsCancellationRequested && emptyBatches < EmptyBatchThreshold)
         {
-            var messages = await receiver.ReceiveMessagesAsync(MaxBatchSize,
-                                                               MaxWaitTime,
-                                                               cancellationToken);
+            var messages = await receiver.ReceiveMessagesAsync(MaxBatchSize, MaxWaitTime, cancellationToken);
 
             if (messages.Count == 0)
             {
@@ -246,37 +184,101 @@ public class PurgeDlqCommand(
 
             emptyBatches = 0;
 
+            var newMessages = messages.Select(CreateResubmitMessage).ToList();
+            await sender.SendMessagesAsync(newMessages, cancellationToken);
+
+            var completeTasks = messages.Select(m => receiver.CompleteMessageAsync(m, cancellationToken));
+            await Task.WhenAll(completeTasks);
+
+            totalResubmitted += messages.Count;
+            Output.Progress($"Resubmitted {totalResubmitted} messages...");
+            Output.Verbose($"\nProcessed batch of {messages.Count} messages", options.Verbose);
+        }
+
+        Console.WriteLine();
+        Output.Success($"Resubmitted {totalResubmitted} messages from DLQ for {entityDescription}");
+        return 0;
+    }
+
+    private async Task<int> ExecuteFilteredResubmitAsync(
+        ServiceBusClient client,
+        ResubmitDlqOptions options,
+        string entityDescription,
+        CancellationToken cancellationToken)
+    {
+        await using var receiver = CreateDlqReceiver(client,
+                                                     options.Queue,
+                                                     options.Topic,
+                                                     options.Subscription,
+                                                     ServiceBusReceiveMode.PeekLock);
+        await using var sender = CreateSender(client, options.Queue, options.Topic);
+
+        var totalResubmitted = 0;
+        var totalSkipped = 0;
+        var emptyBatches = 0;
+        var beforeTime = options.BeforeEnqueueTime!.Value;
+
+        Output.Verbose($"Filtering messages enqueued before {beforeTime:O}", options.Verbose);
+
+        while (!cancellationToken.IsCancellationRequested && emptyBatches < EmptyBatchThreshold)
+        {
+            var messages = await receiver.ReceiveMessagesAsync(MaxBatchSize, MaxWaitTime, cancellationToken);
+
+            if (messages.Count == 0)
+            {
+                emptyBatches++;
+                Output.Verbose($"Empty batch {emptyBatches}/{EmptyBatchThreshold}", options.Verbose);
+                continue;
+            }
+
+            emptyBatches = 0;
+
+            var toResubmit = new List<(ServiceBusReceivedMessage Original, ServiceBusMessage New)>();
+            var toAbandon = new List<ServiceBusReceivedMessage>();
+
             foreach (var message in messages)
             {
                 if (message.EnqueuedTime < beforeTime)
                 {
-                    await receiver.CompleteMessageAsync(message, cancellationToken);
-                    totalDeleted++;
+                    toResubmit.Add((message, CreateResubmitMessage(message)));
                 }
                 else
                 {
-                    await receiver.AbandonMessageAsync(message, cancellationToken:cancellationToken);
-                    totalSkipped++;
+                    toAbandon.Add(message);
                 }
             }
 
-            Output.Progress($"Purged {totalDeleted} messages (skipped {totalSkipped})...");
+            if (toResubmit.Count > 0)
+            {
+                await sender.SendMessagesAsync(toResubmit.Select(x => x.New).ToList(), cancellationToken);
+                var completeTasks = toResubmit.Select(x => receiver.CompleteMessageAsync(x.Original, cancellationToken));
+                await Task.WhenAll(completeTasks);
+                totalResubmitted += toResubmit.Count;
+            }
+
+            if (toAbandon.Count > 0)
+            {
+                var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken: cancellationToken));
+                await Task.WhenAll(abandonTasks);
+                totalSkipped += toAbandon.Count;
+            }
+
+            Output.Progress($"Resubmitted {totalResubmitted} messages (skipped {totalSkipped})...");
         }
 
         Console.WriteLine();
-        Output.Success($"Purged {totalDeleted} messages from DLQ for {entityDescription} (skipped {totalSkipped} newer messages)");
+        Output.Success($"Resubmitted {totalResubmitted} messages from DLQ for {entityDescription} (skipped {totalSkipped} newer messages)");
         return 0;
     }
 
-    private async Task<int> ExecuteInteractivePurgeAsync(
+    private async Task<int> ExecuteInteractiveResubmitAsync(
         ServiceBusClient client,
-        PurgeDlqOptions options,
+        ResubmitDlqOptions options,
         string entityDescription,
         CancellationToken cancellationToken)
     {
         Output.Info($"Analyzing DLQ for {entityDescription}...");
 
-        // Step 1: Peek all messages and build category dictionary
         var categories = await categoryAnalyzer.AnalyzeCategoriesAsync(
             client,
             options.Queue,
@@ -291,12 +293,10 @@ public class PurgeDlqCommand(
             return 0;
         }
 
-        // Step 2: Display category table
         DisplayCategoryTable(categories);
 
-        // Step 3: Get user selection
         Output.Info("");
-        Console.Write("Select categories to purge (comma-separated numbers, 'all', or 'q' to quit): ");
+        Console.Write("Select categories to resubmit (comma-separated numbers, 'all', or 'q' to quit): ");
         var input = Output.ReadLine();
 
         var selectedIndices = ParseSelection(input, categories.Count);
@@ -312,22 +312,20 @@ public class PurgeDlqCommand(
             return 0;
         }
 
-        // Step 4: Build set of selected category keys
         var selectedCategories = new HashSet<(string Label, string Reason)>();
-        var totalToPurge = 0;
-        foreach(var cat in selectedIndices.Select(idx => categories[idx]))
+        var totalToResubmit = 0;
+        foreach (var cat in selectedIndices.Select(idx => categories[idx]))
         {
             selectedCategories.Add((cat.Label, cat.DeadLetterReason));
-            totalToPurge += cat.Count;
+            totalToResubmit += cat.Count;
         }
 
-        Output.Info($"Purging {totalToPurge} messages from {selectedIndices.Count} categories...");
+        Output.Info($"Resubmitting {totalToResubmit} messages from {selectedIndices.Count} categories...");
 
-        // Step 5: Receive messages and complete only those matching selected categories
-        var totalDeleted = await PurgeByCategoriesAsync(client, options, selectedCategories, cancellationToken);
+        var totalResubmitted = await ResubmitByCategoriesAsync(client, options, selectedCategories, cancellationToken);
 
         Console.WriteLine();
-        Output.Success($"Purged {totalDeleted} messages from DLQ for {entityDescription}.");
+        Output.Success($"Resubmitted {totalResubmitted} messages from DLQ for {entityDescription}.");
         return 0;
     }
 
@@ -375,7 +373,6 @@ public class PurgeDlqCommand(
 
         foreach (var part in parts)
         {
-            // Handle ranges like "1-5"
             if (part.Contains('-'))
             {
                 var rangeParts = part.Split('-', 2);
@@ -385,7 +382,7 @@ public class PurgeDlqCommand(
                 {
                     for (var i = start; i <= end; i++)
                     {
-                        var idx = i - 1; // Convert to 0-based
+                        var idx = i - 1;
                         if (idx >= 0 && idx < maxIndex && !indices.Contains(idx))
                         {
                             indices.Add(idx);
@@ -395,7 +392,7 @@ public class PurgeDlqCommand(
             }
             else if (int.TryParse(part, out var num))
             {
-                var idx = num - 1; // Convert to 0-based
+                var idx = num - 1;
                 if (idx >= 0 && idx < maxIndex && !indices.Contains(idx))
                 {
                     indices.Add(idx);
@@ -406,9 +403,9 @@ public class PurgeDlqCommand(
         return indices;
     }
 
-    private async Task<int> PurgeByCategoriesAsync(
+    private async Task<int> ResubmitByCategoriesAsync(
         ServiceBusClient client,
-        PurgeDlqOptions options,
+        ResubmitDlqOptions options,
         HashSet<(string Label, string Reason)> selectedCategories,
         CancellationToken cancellationToken)
     {
@@ -417,16 +414,15 @@ public class PurgeDlqCommand(
                                                      options.Topic,
                                                      options.Subscription,
                                                      ServiceBusReceiveMode.PeekLock);
+        await using var sender = CreateSender(client, options.Queue, options.Topic);
 
-        var totalDeleted = 0;
+        var totalResubmitted = 0;
         var totalSkipped = 0;
         var emptyBatches = 0;
 
         while (!cancellationToken.IsCancellationRequested && emptyBatches < EmptyBatchThreshold)
         {
-            var messages = await receiver.ReceiveMessagesAsync(MaxBatchSize,
-                                                               MaxWaitTime,
-                                                               cancellationToken);
+            var messages = await receiver.ReceiveMessagesAsync(MaxBatchSize, MaxWaitTime, cancellationToken);
 
             if (messages.Count == 0)
             {
@@ -437,7 +433,7 @@ public class PurgeDlqCommand(
 
             emptyBatches = 0;
 
-            var toComplete = new List<ServiceBusReceivedMessage>();
+            var toResubmit = new List<(ServiceBusReceivedMessage Original, ServiceBusMessage New)>();
             var toAbandon = new List<ServiceBusReceivedMessage>();
 
             foreach (var message in messages)
@@ -448,7 +444,7 @@ public class PurgeDlqCommand(
 
                 if (selectedCategories.Contains(key))
                 {
-                    toComplete.Add(message);
+                    toResubmit.Add((message, CreateResubmitMessage(message)));
                 }
                 else
                 {
@@ -456,18 +452,51 @@ public class PurgeDlqCommand(
                 }
             }
 
-            // Process completions and abandons in parallel
-            var tasks = new List<Task>();
-            tasks.AddRange(toComplete.Select(m => receiver.CompleteMessageAsync(m, cancellationToken)));
-            tasks.AddRange(toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken: cancellationToken)));
-            await Task.WhenAll(tasks);
+            if (toResubmit.Count > 0)
+            {
+                await sender.SendMessagesAsync(toResubmit.Select(x => x.New).ToList(), cancellationToken);
+                var completeTasks = toResubmit.Select(x => receiver.CompleteMessageAsync(x.Original, cancellationToken));
+                await Task.WhenAll(completeTasks);
+                totalResubmitted += toResubmit.Count;
+            }
 
-            totalDeleted += toComplete.Count;
-            totalSkipped += toAbandon.Count;
+            if (toAbandon.Count > 0)
+            {
+                var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken: cancellationToken));
+                await Task.WhenAll(abandonTasks);
+                totalSkipped += toAbandon.Count;
+            }
 
-            Output.Progress($"Purged {totalDeleted} messages (skipped {totalSkipped})...");
+            Output.Progress($"Resubmitted {totalResubmitted} messages (skipped {totalSkipped})...");
         }
 
-        return totalDeleted;
+        return totalResubmitted;
     }
+
+    private static ServiceBusMessage CreateResubmitMessage(ServiceBusReceivedMessage original)
+    {
+        var message = new ServiceBusMessage(original.Body)
+        {
+            ContentType = original.ContentType,
+            Subject = original.Subject,
+            MessageId = original.MessageId,
+            CorrelationId = original.CorrelationId,
+            To = original.To,
+            ReplyTo = original.ReplyTo,
+            ReplyToSessionId = original.ReplyToSessionId,
+            SessionId = original.SessionId,
+            PartitionKey = original.PartitionKey,
+            TransactionPartitionKey = original.TransactionPartitionKey,
+            TimeToLive = original.TimeToLive,
+        };
+
+        foreach (var prop in original.ApplicationProperties)
+        {
+            message.ApplicationProperties[prop.Key] = prop.Value;
+        }
+
+        return message;
+    }
+
+    private static ServiceBusSender CreateSender(ServiceBusClient client, string? queueName, string? topicName) => client.CreateSender(!string.IsNullOrEmpty(queueName) ? queueName : topicName!);
 }
