@@ -5,8 +5,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{867D153B-5F5B-4A6A-B076-ECEE9CAE61B2}"
 	ProjectSection(SolutionItems) = preProject
 		global.json = global.json
-		nuget.config = nuget.config
-		nuget.tools.config = nuget.tools.config
 		.gitignore = .gitignore
 		ServiceBusToolset.sln.DotSettings = ServiceBusToolset.sln.DotSettings
 		README.md = README.md
