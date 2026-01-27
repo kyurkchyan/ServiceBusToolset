@@ -229,14 +229,13 @@ public class DiagnoseDlqCommand(IServiceBusClientFactory clientFactory,
         DiagnoseDlqOptions options,
         CancellationToken cancellationToken)
     {
-        var results = new List<DiagnosticResult>();
-        var diagnosed = 0;
+        // Extract operation IDs and build mapping to messages
+        var messagesByOperationId = new Dictionary<string, ServiceBusReceivedMessage>();
+        var operations = new List<(string OperationId, DateTimeOffset EnqueuedTime)>();
         var skipped = 0;
 
         foreach (var message in messages)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
             var operationId = ExtractOperationId(message);
             if (string.IsNullOrEmpty(operationId))
             {
@@ -245,33 +244,43 @@ public class DiagnoseDlqCommand(IServiceBusClientFactory clientFactory,
                 continue;
             }
 
-            try
+            // Handle duplicate operation IDs by keeping the first one
+            if (!messagesByOperationId.ContainsKey(operationId))
             {
-                var result = await appInsightsService.DiagnoseMessageAsync(operationId,
-                                                                           message.EnqueuedTime,
-                                                                           cancellationToken);
+                messagesByOperationId[operationId] = message;
+                operations.Add((operationId, message.EnqueuedTime));
+            }
+        }
 
-                // Enrich with message info
+        if (operations.Count == 0)
+        {
+            Output.Warning($"No messages with valid operation IDs found (skipped {skipped})");
+            return [];
+        }
+
+        Output.Info($"Querying Application Insights for {operations.Count} messages (skipped {skipped} without operation ID)...");
+
+        // Batch query Application Insights
+        var diagnosticResults = await appInsightsService.DiagnoseBatchAsync(operations,
+                                                                            (current, total) => Output.Progress($"Querying App Insights batch {current}/{total}..."),
+                                                                            cancellationToken);
+        Console.WriteLine();
+
+        // Enrich results with message info
+        var results = new List<DiagnosticResult>();
+        foreach (var (operationId, result) in diagnosticResults)
+        {
+            if (messagesByOperationId.TryGetValue(operationId, out var message))
+            {
                 result.MessageId = message.MessageId;
                 result.Subject = message.Subject;
                 result.DeadLetterReason = message.DeadLetterReason;
                 result.Body = TryDecodeBody(message);
-
                 results.Add(result);
-                diagnosed++;
-
-                Output.Progress($"Diagnosed {diagnosed}/{messages.Count} messages (skipped {skipped})...");
-            }
-            catch (Exception ex)
-            {
-                Output.Verbose($"Error diagnosing message {message.MessageId}: {ex.Message}", options.Verbose);
-                skipped++;
             }
         }
 
-        Console.WriteLine();
-        Output.Info($"Diagnosed {diagnosed} messages, skipped {skipped} (no operation ID or query error)");
-
+        Output.Info($"Diagnosed {results.Count} messages");
         return results;
     }
 
@@ -338,7 +347,7 @@ public class DiagnoseDlqCommand(IServiceBusClientFactory clientFactory,
 
         Output.Success($"Found telemetry for {resultsWithTelemetry.Count} of {results.Count} messages");
 
-        // Print summary to console
+        // Print summary to console - grouped by Subject
         PrintDiagnosticSummary(resultsWithTelemetry);
 
         // Write to file if specified
@@ -353,65 +362,99 @@ public class DiagnoseDlqCommand(IServiceBusClientFactory clientFactory,
     private void PrintDiagnosticSummary(List<DiagnosticResult> results)
     {
         Output.Info("");
-        Output.Info("Diagnostic Summary:");
-        Output.Info("===================");
+        Output.Info("Diagnostic Summary by Message Type:");
+        Output.Info("====================================");
 
-        // Group exceptions by type/message
-        var exceptionGroups = results
-                              .SelectMany(r => r.Exceptions)
-                              .GroupBy(e => new
-                              {
-                                  e.ExceptionType,
-                                  e.InnermostMessage
-                              })
-                              .OrderByDescending(g => g.Count())
-                              .Take(10);
+        // Group by Subject (message type)
+        var groupedBySubject = results
+                               .GroupBy(r => r.Subject ?? "(none)")
+                               .OrderByDescending(g => g.Count());
 
-        if (exceptionGroups.Any())
+        foreach (var subjectGroup in groupedBySubject)
         {
+            var messageCount = subjectGroup.Count();
+            var totalExceptions = subjectGroup.Sum(r => r.Exceptions.Count);
+
             Output.Info("");
-            Output.Info("Top Exceptions:");
-            var headers = new[]
+            Output.Info($"[{subjectGroup.Key}] - {messageCount} messages, {totalExceptions} exceptions");
+            Output.Info(new string('-', 60));
+
+            // Get exceptions for this subject, grouped by type only
+            var exceptionGroups = subjectGroup
+                                  .SelectMany(r => r.Exceptions)
+                                  .GroupBy(e => e.ExceptionType ?? "(unknown)")
+                                  .OrderByDescending(g => g.Count())
+                                  .Take(5)
+                                  .ToList();
+
+            if (exceptionGroups.Count > 0)
             {
-                "Count",
-                "Type",
-                "Message"
-            };
-            var rows = exceptionGroups.Select(g => new[]
+                var headers = new[]
+                {
+                    "Count",
+                    "Exception Type",
+                    "Sample Message"
+                };
+                var rows = exceptionGroups.Select(g => new[]
+                {
+                    g.Count().ToString(),
+                    g.Key,
+                    GetExceptionMessage(g.First())
+                });
+                Output.Table(headers, rows);
+            }
+            else
             {
-                g.Count().ToString(),
-                TruncateString(g.Key.ExceptionType ?? "(unknown)", 40),
-                TruncateString(g.Key.InnermostMessage ?? "(no message)", 60)
-            });
-            Output.Table(headers, rows);
+                Output.Info("  No exceptions found (check traces/dependencies in output file)");
+            }
+
+            // Show failed dependencies if any
+            var dependencyGroups = subjectGroup
+                                   .SelectMany(r => r.FailedDependencies)
+                                   .GroupBy(d => new
+                                   {
+                                       d.Type,
+                                       d.Target
+                                   })
+                                   .OrderByDescending(g => g.Count())
+                                   .Take(3);
+
+            if (dependencyGroups.Any())
+            {
+                Output.Info("");
+                Output.Info("  Failed Dependencies:");
+                foreach (var dep in dependencyGroups)
+                {
+                    Output.Info($"    - [{dep.Count()}x] {dep.Key.Type}: {TruncateString(dep.Key.Target ?? "", 40)}");
+                }
+            }
         }
 
-        // Group failed dependencies by target
-        var dependencyGroups = results
-                               .SelectMany(r => r.FailedDependencies)
-                               .GroupBy(d => new
-                               {
-                                   d.Type,
-                                   d.Target
-                               })
-                               .OrderByDescending(g => g.Count())
-                               .Take(5);
+        // Overall summary
+        Output.Info("");
+        Output.Info("Overall Top Exceptions:");
+        Output.Info("=======================");
 
-        if (dependencyGroups.Any())
+        var allExceptions = results
+                            .SelectMany(r => r.Exceptions)
+                            .GroupBy(e => e.ExceptionType ?? "(unknown)")
+                            .OrderByDescending(g => g.Count())
+                            .Take(10)
+                            .ToList();
+
+        if (allExceptions.Count > 0)
         {
-            Output.Info("");
-            Output.Info("Failed Dependencies:");
             var headers = new[]
             {
                 "Count",
                 "Type",
-                "Target"
+                "Sample Message"
             };
-            var rows = dependencyGroups.Select(g => new[]
+            var rows = allExceptions.Select(g => new[]
             {
                 g.Count().ToString(),
-                g.Key.Type ?? "(unknown)",
-                TruncateString(g.Key.Target ?? "(unknown)", 50)
+                g.Key,
+                GetExceptionMessage(g.First())
             });
             Output.Table(headers, rows);
         }
@@ -553,5 +596,21 @@ public class DiagnoseDlqCommand(IServiceBusClientFactory clientFactory,
         }
 
         return value.Length <= maxLength ? value : value[..(maxLength - 3)] + "...";
+    }
+
+    private static string GetExceptionMessage(ExceptionInfo ex)
+    {
+        // Prefer innermostMessage, fall back to outerMessage
+        if (!string.IsNullOrWhiteSpace(ex.InnermostMessage))
+        {
+            return ex.InnermostMessage;
+        }
+
+        if (!string.IsNullOrWhiteSpace(ex.OuterMessage))
+        {
+            return ex.OuterMessage;
+        }
+
+        return "(no message)";
     }
 }

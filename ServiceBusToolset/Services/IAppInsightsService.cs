@@ -5,5 +5,9 @@ namespace ServiceBusToolset.Services;
 public interface IAppInsightsService
 {
     void Initialize(string appInsightsResourceId);
-    Task<DiagnosticResult> DiagnoseMessageAsync(string operationId, DateTimeOffset enqueuedTime, CancellationToken cancellationToken);
+
+    Task<Dictionary<string, DiagnosticResult>> DiagnoseBatchAsync(
+        IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)> operations,
+        Action<int, int>? onProgress,
+        CancellationToken cancellationToken);
 }

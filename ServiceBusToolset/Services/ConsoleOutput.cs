@@ -55,7 +55,8 @@ public class ConsoleOutput : IConsoleOutput
 
         foreach (var header in headers)
         {
-            table.AddColumn(new TableColumn(header));
+            var column = new TableColumn(header) { NoWrap = false };
+            table.AddColumn(column);
         }
 
         foreach (var row in rows)

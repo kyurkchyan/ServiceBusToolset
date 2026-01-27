@@ -44,7 +44,7 @@ public class DiagnoseDlqOptions
     public DateTime? BeforeEnqueueTime { get; set; }
 
     [Option("max-messages",
-            Default = 100,
+            Default = 1000,
             HelpText = "Maximum number of messages to diagnose")]
     public int MaxMessages { get; set; }
 
