@@ -15,10 +15,11 @@ dotnet build
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| [purge-dlq](docs/purge-dlq.md) | Purge messages from a dead letter queue |
+| Command                              | Description                                                       |
+|--------------------------------------|-------------------------------------------------------------------|
+| [purge-dlq](docs/purge-dlq.md)       | Purge messages from a dead letter queue                           |
 | [resubmit-dlq](docs/resubmit-dlq.md) | Resubmit messages from a dead letter queue back to the main queue |
+| [dump-dlq](docs/dump-dlq.md)         | Export DLQ messages to a JSON file                                |
 
 ## Quick Start
 
@@ -34,11 +35,18 @@ dotnet run -- resubmit-dlq -n mynamespace.servicebus.windows.net -q myqueue
 
 # Interactive mode - select which message categories to resubmit
 dotnet run -- resubmit-dlq -n mynamespace.servicebus.windows.net -q myqueue -i
+
+# Dump DLQ messages to a JSON file
+dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o dlq-messages.json
+
+# Interactive mode - select which message categories to dump
+dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o dlq-messages.json -i
 ```
 
 ## Authentication
 
-Uses [DefaultAzureCredential](https://learn.microsoft.com/en-us/dotnet/api/azure.identity.defaultazurecredential). For local development, run `az login`.
+Uses [DefaultAzureCredential](https://learn.microsoft.com/en-us/dotnet/api/azure.identity.defaultazurecredential). For
+local development, run `az login`.
 
 ## License
 
