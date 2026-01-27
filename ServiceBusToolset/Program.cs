@@ -6,6 +6,7 @@ using ServiceBusToolset.Services;
 var clientFactory = new ServiceBusClientFactory();
 var output = new ConsoleOutput();
 var categoryAnalyzer = new DlqCategoryAnalyzer();
+var appInsightsService = new AppInsightsService();
 
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
@@ -14,7 +15,7 @@ Console.CancelKeyPress += (_, e) =>
     cts.Cancel();
 };
 
-return await Parser.Default.ParseArguments<PurgeDlqOptions, ResubmitDlqOptions, DumpDlqOptions>(args)
+return await Parser.Default.ParseArguments<PurgeDlqOptions, ResubmitDlqOptions, DumpDlqOptions, DiagnoseDlqOptions>(args)
                    .MapResult((PurgeDlqOptions opts) =>
                               {
                                   var command = new PurgeDlqCommand(clientFactory, output, categoryAnalyzer);
@@ -28,6 +29,14 @@ return await Parser.Default.ParseArguments<PurgeDlqOptions, ResubmitDlqOptions, 
                               (DumpDlqOptions opts) =>
                               {
                                   var command = new DumpDlqCommand(clientFactory, output, categoryAnalyzer);
+                                  return command.ExecuteAsync(opts, cts.Token);
+                              },
+                              (DiagnoseDlqOptions opts) =>
+                              {
+                                  var command = new DiagnoseDlqCommand(clientFactory,
+                                                                       output,
+                                                                       categoryAnalyzer,
+                                                                       appInsightsService);
                                   return command.ExecuteAsync(opts, cts.Token);
                               },
                               errors => Task.FromResult(HandleParseErrors(errors)));
