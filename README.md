@@ -15,12 +15,13 @@ dotnet build
 
 ## Commands
 
-| Command                              | Description                                                       |
-|--------------------------------------|-------------------------------------------------------------------|
-| [purge-dlq](docs/purge-dlq.md)       | Purge messages from a dead letter queue                           |
-| [resubmit-dlq](docs/resubmit-dlq.md) | Resubmit messages from a dead letter queue back to the main queue |
-| [dump-dlq](docs/dump-dlq.md)         | Export DLQ messages to a JSON file                                |
-| [diagnose-dlq](docs/diagnose-dlq.md) | Diagnose DLQ messages using Application Insights telemetry        |
+| Command                                  | Description                                                       |
+|------------------------------------------|-------------------------------------------------------------------|
+| [purge-dlq](docs/purge-dlq.md)           | Purge messages from a dead letter queue                           |
+| [resubmit-dlq](docs/resubmit-dlq.md)     | Resubmit messages from a dead letter queue back to the main queue |
+| [dump-dlq](docs/dump-dlq.md)             | Export DLQ messages to a JSON file                                |
+| [diagnose-dlq](docs/diagnose-dlq.md)     | Diagnose DLQ messages using Application Insights telemetry        |
+| [monitor-queues](docs/monitor-queues.md) | Monitor queue statistics in a live-updating console table         |
 
 ## Quick Start
 
@@ -46,6 +47,12 @@ dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o dlq-m
 # Diagnose DLQ messages using Application Insights
 dotnet run -- diagnose-dlq -n mynamespace.servicebus.windows.net -q myqueue \
   -a "/subscriptions/.../resourceGroups/.../providers/microsoft.insights/components/my-app-insights"
+
+# Monitor all queues with live-updating table
+dotnet run -- monitor-queues -n mynamespace.servicebus.windows.net
+
+# Monitor queues matching a pattern with 10-second refresh
+dotnet run -- monitor-queues -n mynamespace.servicebus.windows.net -f "order-*" -r 10
 ```
 
 ## Authentication
