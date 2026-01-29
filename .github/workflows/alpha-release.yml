@@ -1,0 +1,45 @@
+name: Alpha Release
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  alpha-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Generate version
+        id: version
+        run: |
+          # Get the latest version tag, default to 1.0.0 if none exists
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+          VERSION=${LATEST_TAG#v}
+          ALPHA_VERSION="${VERSION}-alpha.${GITHUB_RUN_NUMBER}"
+          echo "version=$ALPHA_VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $ALPHA_VERSION"
+
+      - name: Restore dependencies
+        run: dotnet restore ServiceBusToolset
+
+      - name: Build
+        run: dotnet build ServiceBusToolset -c Release --no-restore
+
+      - name: Pack
+        run: dotnet pack ServiceBusToolset -c Release --no-build -o ./artifacts -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Push to NuGet
+        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
