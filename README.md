@@ -2,16 +2,33 @@
 
 A command-line tool for managing Azure Service Bus.
 
+## Installation
+
+### Global Tool (Recommended)
+
+```bash
+# Install from NuGet
+dotnet tool install -g ServiceBusToolset
+
+# Update to latest version
+dotnet tool update -g ServiceBusToolset
+
+# Install preview/alpha version
+dotnet tool install -g ServiceBusToolset --prerelease
+```
+
+### Build from Source
+
+```bash
+git clone https://github.com/kyurkchyan/ServiceBusToolset.git
+cd ServiceBusToolset
+dotnet build
+```
+
 ## Prerequisites
 
 - .NET 10 SDK or later
 - Azure CLI logged in (`az login`)
-
-## Installation
-
-```bash
-dotnet build
-```
 
 ## Commands
 
@@ -27,33 +44,35 @@ dotnet build
 
 ```bash
 # Purge all DLQ messages from a queue
-dotnet run -- purge-dlq -n mynamespace.servicebus.windows.net -q myqueue
+sbtools purge-dlq -n mynamespace.servicebus.windows.net -q myqueue
 
 # Interactive mode - select which message categories to purge
-dotnet run -- purge-dlq -n mynamespace.servicebus.windows.net -q myqueue -i
+sbtools purge-dlq -n mynamespace.servicebus.windows.net -q myqueue -i
 
 # Resubmit DLQ messages back to the main queue
-dotnet run -- resubmit-dlq -n mynamespace.servicebus.windows.net -q myqueue
+sbtools resubmit-dlq -n mynamespace.servicebus.windows.net -q myqueue
 
 # Interactive mode - select which message categories to resubmit
-dotnet run -- resubmit-dlq -n mynamespace.servicebus.windows.net -q myqueue -i
+sbtools resubmit-dlq -n mynamespace.servicebus.windows.net -q myqueue -i
 
 # Dump DLQ messages to a JSON file
-dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o dlq-messages.json
+sbtools dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o dlq-messages.json
 
 # Interactive mode - select which message categories to dump
-dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o dlq-messages.json -i
+sbtools dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o dlq-messages.json -i
 
 # Diagnose DLQ messages using Application Insights
-dotnet run -- diagnose-dlq -n mynamespace.servicebus.windows.net -q myqueue \
+sbtools diagnose-dlq -n mynamespace.servicebus.windows.net -q myqueue \
   -a "/subscriptions/.../resourceGroups/.../providers/microsoft.insights/components/my-app-insights"
 
 # Monitor all queues with live-updating table
-dotnet run -- monitor-queues -n mynamespace.servicebus.windows.net
+sbtools monitor-queues -n mynamespace.servicebus.windows.net
 
 # Monitor queues matching a pattern with 10-second refresh
-dotnet run -- monitor-queues -n mynamespace.servicebus.windows.net -f "order-*" -r 10
+sbtools monitor-queues -n mynamespace.servicebus.windows.net -f "order-*" -r 10
 ```
+
+> **Note:** If running from source instead of the global tool, replace `sbtools` with `dotnet run --` in the commands above.
 
 ## Authentication
 

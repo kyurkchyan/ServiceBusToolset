@@ -1,0 +1,58 @@
+name: Alpha Release
+
+on:
+  push:
+    branches: [master, 'feature/GK/cicd-pipelines']
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      base_version:
+        description: 'Base version (without alpha suffix)'
+        required: false
+        default: '1.0.0'
+
+env:
+  BASE_VERSION: '1.0.0'
+
+jobs:
+  alpha-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Generate version
+        id: version
+        run: |
+          # Use input version if provided (workflow_dispatch), otherwise use env default
+          BASE="${{ github.event.inputs.base_version || env.BASE_VERSION }}"
+          ALPHA_VERSION="${BASE}-alpha.${GITHUB_RUN_NUMBER}"
+          echo "version=$ALPHA_VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $ALPHA_VERSION"
+
+      - name: Restore dependencies
+        run: dotnet restore ServiceBusToolset
+
+      - name: Build
+        run: dotnet build ServiceBusToolset -c Release --no-restore
+
+      - name: Pack
+        run: dotnet pack ServiceBusToolset -c Release --no-build -o ./artifacts -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Push to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::warning::NUGET_API_KEY secret not set, skipping publish"
+            exit 0
+          fi
+          dotnet nuget push ./artifacts/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
