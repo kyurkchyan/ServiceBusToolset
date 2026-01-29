@@ -2,7 +2,7 @@ name: Alpha Release
 
 on:
   push:
-    branches: [master]
+    branches: [master, 'feature/GK/cicd-pipelines']
     paths-ignore:
       - '**.md'
       - 'docs/**'
