@@ -38,7 +38,10 @@ param(
     [string]$BumpType,
 
     [Parameter()]
-    [switch]$DryRun
+    [switch]$DryRun,
+
+    [Parameter()]
+    [switch]$TestMode  # For testing the script without making changes
 )
 
 $ErrorActionPreference = 'Stop'
@@ -61,6 +64,13 @@ function Write-Warning {
 function Write-Error {
     param([string]$Message)
     Write-Host "✗ $Message" -ForegroundColor Red
+}
+
+function Write-Debug-Log {
+    param([string]$Message)
+    if ($TestMode) {
+        Write-Host "[DEBUG] $Message" -ForegroundColor DarkGray
+    }
 }
 
 function Test-Prerequisites {
@@ -191,7 +201,7 @@ Please analyze these commits and provide:
    - Keep it concise but informative
    - Do not include a version header (that will be added separately)
 
-Format your response EXACTLY like this (the markers are important for parsing):
+IMPORTANT: Output ONLY the formatted response below with NO other text before or after:
 ---SUGGESTED_BUMP---
 patch
 ---RELEASE_NOTES---
@@ -209,15 +219,45 @@ patch
         throw "Claude CLI failed: $response"
     }
 
-    # Parse the response
+    # Parse the response - normalize line endings first
+    Write-Debug-Log "Raw response type: $($response.GetType().FullName)"
+    Write-Debug-Log "Raw response is array: $($response -is [array])"
+    if ($response -is [array]) {
+        Write-Debug-Log "Response array count: $($response.Count)"
+    }
+
+    $responseText = $response -join "`n"
+    $responseText = $responseText -replace "`r`n", "`n"
+
+    Write-Debug-Log "Response text length: $($responseText.Length)"
+    Write-Debug-Log "Response contains SUGGESTED_BUMP: $($responseText.Contains('---SUGGESTED_BUMP---'))"
+    Write-Debug-Log "Response contains RELEASE_NOTES: $($responseText.Contains('---RELEASE_NOTES---'))"
+    Write-Debug-Log "Response contains END: $($responseText.Contains('---END---'))"
+
+    if ($TestMode) {
+        Write-Host "`n[DEBUG] Full response text:" -ForegroundColor DarkGray
+        Write-Host "─────────────────────────────────────────" -ForegroundColor DarkGray
+        Write-Host $responseText -ForegroundColor DarkGray
+        Write-Host "─────────────────────────────────────────" -ForegroundColor DarkGray
+    }
+
     $suggestedBump = $null
     $releaseNotes = $null
 
-    if ($response -match '---SUGGESTED_BUMP---\s*(\w+)\s*---RELEASE_NOTES---\s*([\s\S]*?)\s*---END---') {
+    # Extract SUGGESTED_BUMP
+    if ($responseText -match '---SUGGESTED_BUMP---\s*(\w+)') {
         $suggestedBump = $Matches[1].Trim()
-        $releaseNotes = $Matches[2].Trim()
+        Write-Debug-Log "Parsed SUGGESTED_BUMP: $suggestedBump"
     } else {
-        throw "Failed to parse Claude response. Raw response:`n$response"
+        throw "Failed to parse SUGGESTED_BUMP from Claude response. Raw response:`n$responseText"
+    }
+
+    # Extract RELEASE_NOTES
+    if ($responseText -match '---RELEASE_NOTES---\s*([\s\S]*?)\s*---END---') {
+        $releaseNotes = $Matches[1].Trim()
+        Write-Debug-Log "Parsed RELEASE_NOTES length: $($releaseNotes.Length)"
+    } else {
+        throw "Failed to parse RELEASE_NOTES from Claude response. Raw response:`n$responseText"
     }
 
     Write-Success "Claude suggests: $suggestedBump bump"
@@ -338,8 +378,12 @@ try {
     Write-Host "║              ServiceBusToolset Release Script                 ║" -ForegroundColor Magenta
     Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
 
-    Test-Prerequisites
-    Test-WorkingDirectory
+    if ($TestMode) {
+        Write-Host "[TEST MODE] Skipping prerequisites and working directory checks" -ForegroundColor Yellow
+    } else {
+        Test-Prerequisites
+        Test-WorkingDirectory
+    }
 
     $lastTag = Get-LastVersionTag
     $commits = Get-CommitsSinceTag -Tag $lastTag
@@ -358,7 +402,12 @@ try {
     $confirmed = Confirm-Release -Version $nextVersion -BumpType $effectiveBumpType -ReleaseNotes $claudeResult.ReleaseNotes
 
     if ($confirmed) {
-        New-Release -Version $nextVersion -ReleaseNotes $claudeResult.ReleaseNotes
+        if ($TestMode) {
+            Write-Host "`n[TEST MODE] Would create release v$nextVersion - skipping actual release" -ForegroundColor Yellow
+            Write-Success "Test completed successfully! Parsing works correctly."
+        } else {
+            New-Release -Version $nextVersion -ReleaseNotes $claudeResult.ReleaseNotes
+        }
     } else {
         if (-not $DryRun) {
             Write-Host "`nRelease cancelled." -ForegroundColor Yellow
