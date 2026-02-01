@@ -1,64 +1,61 @@
+using Ardalis.Result;
 using Mediator;
 using ServiceBusToolset.Application.Common.ServiceBus.Models;
 using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.DumpDlq;
 using ServiceBusToolset.CLI.Common.Commands;
+using ServiceBusToolset.CLI.Common.Extensions;
 using ServiceBusToolset.CLI.Common.Logging;
+using Unit = Mediator.Unit;
 
 namespace ServiceBusToolset.CLI.DeadLetters.DumpDlq;
 
-public sealed class DumpDlqCommandHandler(ISender mediator,
-                                          IConsoleOutput output) : BaseCommandHandler(output)
+public sealed class DumpDlqCommandHandler(ISender mediator, IConsoleOutput output)
+    : BaseCommandHandler<DumpDlqCliCommand, Unit>(output)
 {
-    public async Task<int> ExecuteAsync(DumpDlqCliCommand cliCommand, CancellationToken cancellationToken = default)
+    protected override async Task<Result<Unit>> ExecuteCoreAsync(
+        DumpDlqCliCommand command,
+        bool verbose,
+        CancellationToken cancellationToken = default)
     {
-        var validationError = cliCommand.Validate();
-        if (validationError != null)
-        {
-            Output.Error(validationError);
-            return 1;
-        }
-
-        var target = CreateTarget(cliCommand);
+        var target = CreateTarget(command);
         var entityDescription = target.GetDescription();
 
-        return await ExecuteWithExceptionHandling(async () =>
-                                                  {
-                                                      if (cliCommand.DryRun)
-                                                      {
-                                                          return await ExecuteDryRunAsync(cliCommand,
-                                                                                          target,
-                                                                                          entityDescription,
-                                                                                          cancellationToken);
-                                                      }
+        if (command.DryRun)
+        {
+            return await ExecuteDryRunAsync(command,
+                                            target,
+                                            entityDescription,
+                                            verbose,
+                                            cancellationToken);
+        }
 
-                                                      if (cliCommand.Interactive)
-                                                      {
-                                                          return await ExecuteInteractiveDumpAsync(cliCommand,
-                                                                                                   target,
-                                                                                                   entityDescription,
-                                                                                                   cancellationToken);
-                                                      }
+        if (command.Interactive)
+        {
+            return await ExecuteInteractiveDumpAsync(command,
+                                                     target,
+                                                     entityDescription,
+                                                     cancellationToken);
+        }
 
-                                                      return await ExecuteDumpAsync(cliCommand,
-                                                                                    target,
-                                                                                    entityDescription,
-                                                                                    cancellationToken);
-                                                  },
-                                                  cliCommand.Verbose);
+        return await ExecuteDumpAsync(command,
+                                      target,
+                                      entityDescription,
+                                      cancellationToken);
     }
 
-    private async Task<int> ExecuteDryRunAsync(
+    private async Task<Result<Unit>> ExecuteDryRunAsync(
         DumpDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
+        bool verbose,
         CancellationToken cancellationToken)
     {
         Output.Info($"[DRY RUN] Counting messages in DLQ for {entityDescription}...");
 
         if (cliCommand.BeforeEnqueueTime.HasValue)
         {
-            Output.Verbose("Using slow count due to --before filter", cliCommand.Verbose);
+            Output.Verbose("Using slow count due to --before filter", verbose);
         }
 
         var progress = cliCommand.BeforeEnqueueTime.HasValue
@@ -77,21 +74,24 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
             Console.WriteLine();
         }
 
-        return HandleResult(result,
-                            r =>
-                            {
-                                if (r.FilteredCount.HasValue)
-                                {
-                                    Output.Success($"[DRY RUN] Found {r.FilteredCount} messages enqueued before {r.BeforeTime:O} (total: {r.TotalCount})");
-                                }
-                                else
-                                {
-                                    Output.Success($"[DRY RUN] Found {r.TotalCount} messages in DLQ for {entityDescription}");
-                                }
-                            });
+        if (!result.IsSuccess)
+        {
+            return result.ToErrorResult<Unit>();
+        }
+
+        if (result.Value.FilteredCount.HasValue)
+        {
+            Output.Success($"[DRY RUN] Found {result.Value.FilteredCount} messages enqueued before {result.Value.BeforeTime:O} (total: {result.Value.TotalCount})");
+        }
+        else
+        {
+            Output.Success($"[DRY RUN] Found {result.Value.TotalCount} messages in DLQ for {entityDescription}");
+        }
+
+        return Result.Success(Unit.Value);
     }
 
-    private async Task<int> ExecuteDumpAsync(
+    private async Task<Result<Unit>> ExecuteDumpAsync(
         DumpDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
@@ -112,21 +112,24 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
 
         Console.WriteLine();
 
-        return HandleResult(result,
-                            r =>
-                            {
-                                if (r.MessageCount == 0)
-                                {
-                                    Output.Info("No messages found matching criteria.");
-                                }
-                                else
-                                {
-                                    Output.Success($"Dumped {r.MessageCount} messages to '{r.OutputFilePath}'");
-                                }
-                            });
+        if (!result.IsSuccess)
+        {
+            return result.ToErrorResult<Unit>();
+        }
+
+        if (result.Value.MessageCount == 0)
+        {
+            Output.Info("No messages found matching criteria.");
+        }
+        else
+        {
+            Output.Success($"Dumped {result.Value.MessageCount} messages to '{result.Value.OutputFilePath}'");
+        }
+
+        return Result.Success(Unit.Value);
     }
 
-    private async Task<int> ExecuteInteractiveDumpAsync(
+    private async Task<Result<Unit>> ExecuteInteractiveDumpAsync(
         DumpDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
@@ -146,12 +149,7 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
 
         if (!categoriesResult.IsSuccess)
         {
-            foreach (var error in categoriesResult.Errors)
-            {
-                Output.Error(error);
-            }
-
-            return 1;
+            return categoriesResult.ToErrorResult<Unit>();
         }
 
         var categories = categoriesResult.Value.Categories;
@@ -159,11 +157,13 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
         if (categories.Count == 0)
         {
             Output.Info("No messages found in DLQ.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
-        DlqCategoryDisplay.DisplayTable(categories, categoriesResult.Value.TotalMessageCount,
-                                        Output.Info, Output.Table);
+        DlqCategoryDisplay.DisplayTable(categories,
+                                        categoriesResult.Value.TotalMessageCount,
+                                        Output.Info,
+                                        Output.Table);
 
         Output.Info("");
         Console.Write("Select categories to dump (comma-separated numbers, 'all', or 'q' to quit): ");
@@ -173,13 +173,13 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
         if (selectedIndices == null)
         {
             Output.Info("Operation cancelled.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
         if (selectedIndices.Count == 0)
         {
             Output.Warning("No valid categories selected.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
         var selection = CategorySelection.Build(categories, selectedIndices);
@@ -199,11 +199,14 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
 
         Console.WriteLine();
 
-        return HandleResult(dumpResult,
-                            r =>
-                            {
-                                Output.Success($"Dumped {r.MessageCount} messages to '{r.OutputFilePath}'");
-                            });
+        if (!dumpResult.IsSuccess)
+        {
+            return dumpResult.ToErrorResult<Unit>();
+        }
+
+        Output.Success($"Dumped {dumpResult.Value.MessageCount} messages to '{dumpResult.Value.OutputFilePath}'");
+
+        return Result.Success(Unit.Value);
     }
 
     private static EntityTarget CreateTarget(DumpDlqCliCommand cliCommand)

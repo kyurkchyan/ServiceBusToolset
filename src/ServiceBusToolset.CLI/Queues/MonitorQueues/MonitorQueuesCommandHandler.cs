@@ -4,87 +4,68 @@ using Mediator;
 using ServiceBusToolset.Application.Queues.MonitorQueues;
 using ServiceBusToolset.Application.Queues.MonitorQueues.Models;
 using ServiceBusToolset.CLI.Common.Commands;
+using ServiceBusToolset.CLI.Common.Extensions;
 using ServiceBusToolset.CLI.Common.Logging;
 using Spectre.Console;
+using Unit = Mediator.Unit;
 
 namespace ServiceBusToolset.CLI.Queues.MonitorQueues;
 
 public sealed class MonitorQueuesCommandHandler(ISender mediator, IConsoleOutput output)
-    : BaseCommandHandler(output)
+    : BaseCommandHandler<MonitorQueuesCliCommand, Unit>(output)
 {
-    public async Task<int> ExecuteAsync(MonitorQueuesCliCommand cliCommand, CancellationToken cancellationToken = default)
+    protected override async Task<Result<Unit>> ExecuteCoreAsync(
+        MonitorQueuesCliCommand command,
+        bool verbose,
+        CancellationToken cancellationToken = default)
     {
-        var validationError = cliCommand.Validate();
-        if (validationError != null)
+        Output.Info($"Connecting to Service Bus namespace: {command.Namespace}");
+        if (!string.IsNullOrEmpty(command.Filter))
         {
-            Output.Error(validationError);
-            return 1;
+            Output.Info($"Filter: {command.Filter}");
         }
 
-        return await ExecuteWithExceptionHandling(async () =>
-                                                  {
-                                                      Output.Info($"Connecting to Service Bus namespace: {cliCommand.Namespace}");
-                                                      if (!string.IsNullOrEmpty(cliCommand.Filter))
-                                                      {
-                                                          Output.Info($"Filter: {cliCommand.Filter}");
-                                                      }
+        Output.Info($"Refresh interval: {command.RefreshInterval} seconds");
+        Output.Info("Press Ctrl+C to stop monitoring.");
+        Output.Info("");
 
-                                                      Output.Info($"Refresh interval: {cliCommand.RefreshInterval} seconds");
-                                                      Output.Info("Press Ctrl+C to stop monitoring.");
-                                                      Output.Info("");
+        var refreshInterval = TimeSpan.FromSeconds(command.RefreshInterval);
 
-                                                      var refreshInterval = TimeSpan.FromSeconds(cliCommand.RefreshInterval);
+        var mediatorCommand = new MonitorQueuesCommand(command.Namespace,
+                                                       command.Filter,
+                                                       refreshInterval,
+                                                       cancellationToken);
 
-                                                      var command = new MonitorQueuesCommand(cliCommand.Namespace,
-                                                                                             cliCommand.Filter,
-                                                                                             refreshInterval,
-                                                                                             cancellationToken);
+        var result = await mediator.Send(mediatorCommand, cancellationToken);
 
-                                                      var result = await mediator.Send(command, cancellationToken);
-
-                                                      return HandleResult(result,
-                                                                          async r =>
-                                                                          {
-                                                                              try
-                                                                              {
-                                                                                  await r.QueueStatistics.ForEachAsync(stats =>
-                                                                                                                       {
-                                                                                                                           Console.Clear();
-                                                                                                                           var table = CreateTable(stats);
-                                                                                                                           AnsiConsole.Write(table);
-
-                                                                                                                           if (cliCommand.Verbose)
-                                                                                                                           {
-                                                                                                                               Output.Verbose($"Updated at {DateTimeOffset.Now:HH:mm:ss} - {stats.Count} queues",
-                                                                                                                                              cliCommand.Verbose);
-                                                                                                                           }
-                                                                                                                       },
-                                                                                                                       cancellationToken);
-                                                                              }
-                                                                              catch (OperationCanceledException)
-                                                                              {
-                                                                                  Output.Info("");
-                                                                                  Output.Info("Monitoring stopped.");
-                                                                              }
-                                                                          });
-                                                  },
-                                                  cliCommand.Verbose);
-    }
-
-    private int HandleResult(Result<MonitorQueuesResult> result, Func<MonitorQueuesResult, Task> onSuccess)
-    {
-        if (result.IsSuccess)
+        if (!result.IsSuccess)
         {
-            onSuccess(result.Value).GetAwaiter().GetResult();
-            return 0;
+            return result.ToErrorResult<Unit>();
         }
 
-        foreach (var error in result.Errors)
+        try
         {
-            Output.Error(error);
+            await result.Value.QueueStatistics.ForEachAsync(stats =>
+                                                            {
+                                                                Console.Clear();
+                                                                var table = CreateTable(stats);
+                                                                AnsiConsole.Write(table);
+
+                                                                if (verbose)
+                                                                {
+                                                                    Output.Verbose($"Updated at {DateTimeOffset.Now:HH:mm:ss} - {stats.Count} queues",
+                                                                                   verbose);
+                                                                }
+                                                            },
+                                                            cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            Output.Info("");
+            Output.Info("Monitoring stopped.");
         }
 
-        return 1;
+        return Result.Success(Unit.Value);
     }
 
     private static Table CreateTable(IReadOnlyList<QueueStatistics> statistics)

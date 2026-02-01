@@ -1,9 +1,10 @@
 using CommandLine;
+using ServiceBusToolset.CLI.Common.Commands;
 
 namespace ServiceBusToolset.CLI.DeadLetters.DumpDlq;
 
 [Verb("dump-dlq", HelpText = "Export DLQ messages to a JSON file")]
-public class DumpDlqCliCommand
+public class DumpDlqCliCommand : ICliCommand
 {
     [Option('n',
             "namespace",

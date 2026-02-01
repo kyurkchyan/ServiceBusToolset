@@ -1,65 +1,59 @@
+using Ardalis.Result;
 using Mediator;
 using ServiceBusToolset.Application.Common.ServiceBus.Models;
 using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.DumpDlq;
 using ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 using ServiceBusToolset.CLI.Common.Commands;
+using ServiceBusToolset.CLI.Common.Extensions;
 using ServiceBusToolset.CLI.Common.Logging;
+using Unit = Mediator.Unit;
 
 namespace ServiceBusToolset.CLI.DeadLetters.ResubmitDlq;
 
-public sealed class ResubmitDlqCommandHandler(ISender mediator,
-                                              IConsoleOutput output) : BaseCommandHandler(output)
+public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput output)
+    : BaseCommandHandler<ResubmitDlqCliCommand, Unit>(output)
 {
-    public async Task<int> ExecuteAsync(ResubmitDlqCliCommand cliCommand, CancellationToken cancellationToken = default)
+    protected override Task<Result<Unit>> ExecuteCoreAsync(
+        ResubmitDlqCliCommand command,
+        bool verbose,
+        CancellationToken cancellationToken = default)
     {
-        var validationError = cliCommand.Validate();
-        if (validationError != null)
-        {
-            Output.Error(validationError);
-            return 1;
-        }
-
-        var target = CreateTarget(cliCommand);
+        var target = CreateTarget(command);
         var entityDescription = target.GetDescription();
 
-        return await ExecuteWithExceptionHandling(async () =>
-                                                  {
-                                                      if (cliCommand.DryRun)
-                                                      {
-                                                          return await ExecuteDryRunAsync(cliCommand,
-                                                                                          target,
-                                                                                          entityDescription,
-                                                                                          cancellationToken);
-                                                      }
+        if (command.DryRun)
+        {
+            return ExecuteDryRunAsync(command,
+                                      target,
+                                      entityDescription,
+                                      verbose,
+                                      cancellationToken);
+        }
 
-                                                      if (cliCommand.Interactive)
-                                                      {
-                                                          return await ExecuteInteractiveResubmitAsync(cliCommand,
-                                                                                                       target,
-                                                                                                       entityDescription,
-                                                                                                       cancellationToken);
-                                                      }
-
-                                                      return await ExecuteResubmitAsync(cliCommand,
-                                                                                        target,
-                                                                                        entityDescription,
-                                                                                        cancellationToken);
-                                                  },
-                                                  cliCommand.Verbose);
+        return command.Interactive
+                   ? ExecuteInteractiveResubmitAsync(command,
+                                                     target,
+                                                     entityDescription,
+                                                     cancellationToken)
+                   : ExecuteResubmitAsync(command,
+                                          target,
+                                          entityDescription,
+                                          cancellationToken);
     }
 
-    private async Task<int> ExecuteDryRunAsync(
+    private async Task<Result<Unit>> ExecuteDryRunAsync(
         ResubmitDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
+        bool verbose,
         CancellationToken cancellationToken)
     {
         Output.Info($"[DRY RUN] Counting messages in DLQ for {entityDescription}...");
 
         if (cliCommand.BeforeEnqueueTime.HasValue)
         {
-            Output.Verbose("Using slow count due to --before filter", cliCommand.Verbose);
+            Output.Verbose("Using slow count due to --before filter", verbose);
         }
 
         var progress = cliCommand.BeforeEnqueueTime.HasValue
@@ -78,21 +72,24 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
             Console.WriteLine();
         }
 
-        return HandleResult(result,
-                            r =>
-                            {
-                                if (r.FilteredCount.HasValue)
-                                {
-                                    Output.Success($"[DRY RUN] Found {r.FilteredCount} messages enqueued before {r.BeforeTime:O} (total: {r.TotalCount})");
-                                }
-                                else
-                                {
-                                    Output.Success($"[DRY RUN] Found {r.TotalCount} messages in DLQ for {entityDescription}");
-                                }
-                            });
+        if (!result.IsSuccess)
+        {
+            return Result<Unit>.Error(new ErrorList(result.Errors.ToList()));
+        }
+
+        if (result.Value.FilteredCount.HasValue)
+        {
+            Output.Success($"[DRY RUN] Found {result.Value.FilteredCount} messages enqueued before {result.Value.BeforeTime:O} (total: {result.Value.TotalCount})");
+        }
+        else
+        {
+            Output.Success($"[DRY RUN] Found {result.Value.TotalCount} messages in DLQ for {entityDescription}");
+        }
+
+        return Result.Success(Unit.Value);
     }
 
-    private async Task<int> ExecuteResubmitAsync(
+    private async Task<Result<Unit>> ExecuteResubmitAsync(
         ResubmitDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
@@ -114,21 +111,24 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
 
         Console.WriteLine();
 
-        return HandleResult(result,
-                            r =>
-                            {
-                                if (r.SkippedCount > 0)
-                                {
-                                    Output.Success($"Resubmitted {r.ResubmittedCount} messages from DLQ for {entityDescription}{targetInfo} (skipped {r.SkippedCount} newer messages)");
-                                }
-                                else
-                                {
-                                    Output.Success($"Resubmitted {r.ResubmittedCount} messages from DLQ for {entityDescription}{targetInfo}");
-                                }
-                            });
+        if (!result.IsSuccess)
+        {
+            return result.ToErrorResult<Unit>();
+        }
+
+        if (result.Value.SkippedCount > 0)
+        {
+            Output.Success($"Resubmitted {result.Value.ResubmittedCount} messages from DLQ for {entityDescription}{targetInfo} (skipped {result.Value.SkippedCount} newer messages)");
+        }
+        else
+        {
+            Output.Success($"Resubmitted {result.Value.ResubmittedCount} messages from DLQ for {entityDescription}{targetInfo}");
+        }
+
+        return Result.Success(Unit.Value);
     }
 
-    private async Task<int> ExecuteInteractiveResubmitAsync(
+    private async Task<Result<Unit>> ExecuteInteractiveResubmitAsync(
         ResubmitDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
@@ -148,12 +148,7 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
 
         if (!categoriesResult.IsSuccess)
         {
-            foreach (var error in categoriesResult.Errors)
-            {
-                Output.Error(error);
-            }
-
-            return 1;
+            return categoriesResult.ToErrorResult<Unit>();
         }
 
         var categories = categoriesResult.Value.Categories;
@@ -161,11 +156,13 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
         if (categories.Count == 0)
         {
             Output.Info("No messages found in DLQ.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
-        DlqCategoryDisplay.DisplayTable(categories, categoriesResult.Value.TotalMessageCount,
-                                        Output.Info, Output.Table);
+        DlqCategoryDisplay.DisplayTable(categories,
+                                        categoriesResult.Value.TotalMessageCount,
+                                        Output.Info,
+                                        Output.Table);
 
         Output.Info("");
         Console.Write("Select categories to resubmit (comma-separated numbers, 'all', or 'q' to quit): ");
@@ -175,13 +172,13 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
         if (selectedIndices == null)
         {
             Output.Info("Operation cancelled.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
         if (selectedIndices.Count == 0)
         {
             Output.Warning("No valid categories selected.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
         var selection = CategorySelection.Build(categories, selectedIndices);
@@ -202,11 +199,14 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
 
         Console.WriteLine();
 
-        return HandleResult(resubmitResult,
-                            r =>
-                            {
-                                Output.Success($"Resubmitted {r.ResubmittedCount} messages from DLQ for {entityDescription}{targetInfo}.");
-                            });
+        if (!resubmitResult.IsSuccess)
+        {
+            return resubmitResult.ToErrorResult<Unit>();
+        }
+
+        Output.Success($"Resubmitted {resubmitResult.Value.ResubmittedCount} messages from DLQ for {entityDescription}{targetInfo}.");
+
+        return Result.Success(Unit.Value);
     }
 
     private IProgress<(int Resubmitted, int Skipped)> CreateResubmitProgressReporter()

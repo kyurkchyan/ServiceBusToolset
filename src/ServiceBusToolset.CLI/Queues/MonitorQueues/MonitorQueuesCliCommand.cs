@@ -1,9 +1,10 @@
 using CommandLine;
+using ServiceBusToolset.CLI.Common.Commands;
 
 namespace ServiceBusToolset.CLI.Queues.MonitorQueues;
 
 [Verb("monitor-queues", HelpText = "Monitor Service Bus queue statistics in a live-updating console table")]
-public class MonitorQueuesCliCommand
+public class MonitorQueuesCliCommand : ICliCommand
 {
     [Option('n',
             "namespace",

@@ -1,9 +1,10 @@
 using CommandLine;
+using ServiceBusToolset.CLI.Common.Commands;
 
 namespace ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
 
 [Verb("purge-dlq", HelpText = "Purge messages from a dead letter queue")]
-public class PurgeDlqCliCommand
+public class PurgeDlqCliCommand : ICliCommand
 {
     [Option('n',
             "namespace",

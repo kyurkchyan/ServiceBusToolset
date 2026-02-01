@@ -1,9 +1,10 @@
 using CommandLine;
+using ServiceBusToolset.CLI.Common.Commands;
 
 namespace ServiceBusToolset.CLI.DeadLetters.ResubmitDlq;
 
 [Verb("resubmit-dlq", HelpText = "Resubmit messages from a dead letter queue back to the main queue")]
-public class ResubmitDlqCliCommand
+public class ResubmitDlqCliCommand : ICliCommand
 {
     [Option('n',
             "namespace",

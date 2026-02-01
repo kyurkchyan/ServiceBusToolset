@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using ServiceBusToolset.CLI.Common.Commands;
 using ServiceBusToolset.CLI.Common.Logging;
 using ServiceBusToolset.CLI.Common.ServiceBus;
 using ServiceBusToolset.CLI.DeadLetters.DiagnoseDlq;
@@ -14,17 +15,22 @@ public static class CliDependencyInjectionExtensions
 {
     public static IServiceCollection AddCli(this IServiceCollection services)
     {
-        // Infrastructure services
         services.AddSingleton<IServiceBusClientFactory, ServiceBusClientFactory>();
         services.AddSingleton<IConsoleOutput, ConsoleOutput>();
 
-        // Command handlers
-        services.AddScoped<DumpDlqCommandHandler>();
-        services.AddScoped<DiagnoseDlqCommandHandler>();
-        services.AddScoped<PurgeDlqCommandHandler>();
-        services.AddScoped<ResubmitDlqCommandHandler>();
-        services.AddScoped<MonitorQueuesCommandHandler>();
-
         return services;
     }
+
+    public static IServiceCollection AddCommandHandlers(this IServiceCollection services)
+        => services
+           .AddCommandHandler<DumpDlqCliCommand, DumpDlqCommandHandler>()
+           .AddCommandHandler<PurgeDlqCliCommand, PurgeDlqCommandHandler>()
+           .AddCommandHandler<ResubmitDlqCliCommand, ResubmitDlqCommandHandler>()
+           .AddCommandHandler<DiagnoseDlqCliCommand, DiagnoseDlqCommandHandler>()
+           .AddCommandHandler<MonitorQueuesCliCommand, MonitorQueuesCommandHandler>();
+
+    private static IServiceCollection AddCommandHandler<TCommand, THandler>(this IServiceCollection services)
+        where THandler : class, ICommandHandler<TCommand>
+        where TCommand : class
+        => services.AddScoped<ICommandHandler<TCommand>, THandler>();
 }

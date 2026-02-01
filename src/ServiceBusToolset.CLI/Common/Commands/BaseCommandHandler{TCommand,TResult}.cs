@@ -5,17 +5,26 @@ using ServiceBusToolset.CLI.Common.Logging;
 
 namespace ServiceBusToolset.CLI.Common.Commands;
 
-public abstract class BaseCommandHandler(IConsoleOutput output)
+public abstract class BaseCommandHandler<TCommand, TResult>(IConsoleOutput output) : ICommandHandler<TCommand>
+    where TCommand : ICliCommand
 {
     protected IConsoleOutput Output => output;
 
-    protected async Task<int> ExecuteWithExceptionHandling(
-        Func<Task<int>> action,
-        bool verbose = false)
+    public async Task<int> ExecuteAsync(TCommand command,
+                                        bool verbose = false,
+                                        CancellationToken cancellationToken = default)
     {
+        var validationError = command.Validate();
+        if (validationError != null)
+        {
+            Output.Error(validationError);
+            return 1;
+        }
+
         try
         {
-            return await action();
+            var result = await ExecuteCoreAsync(command, verbose, cancellationToken);
+            return HandleResult(result);
         }
         catch (AuthenticationFailedException ex)
         {
@@ -36,11 +45,12 @@ public abstract class BaseCommandHandler(IConsoleOutput output)
         }
     }
 
-    protected int HandleResult<T>(Result<T> result, Action<T> onSuccess)
+    protected abstract Task<Result<TResult>> ExecuteCoreAsync(TCommand command, bool verbose, CancellationToken cancellationToken = default);
+
+    private int HandleResult<T>(Result<T> result)
     {
         if (result.IsSuccess)
         {
-            onSuccess(result.Value);
             return 0;
         }
 

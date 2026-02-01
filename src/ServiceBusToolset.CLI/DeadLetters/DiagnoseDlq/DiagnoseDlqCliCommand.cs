@@ -1,9 +1,10 @@
 using CommandLine;
+using ServiceBusToolset.CLI.Common.Commands;
 
 namespace ServiceBusToolset.CLI.DeadLetters.DiagnoseDlq;
 
 [Verb("diagnose-dlq", HelpText = "Diagnose DLQ messages by correlating with Application Insights telemetry")]
-public class DiagnoseDlqCliCommand
+public class DiagnoseDlqCliCommand : ICliCommand
 {
     [Option('n',
             "namespace",

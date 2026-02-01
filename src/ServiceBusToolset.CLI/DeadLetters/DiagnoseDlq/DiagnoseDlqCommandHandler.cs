@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Ardalis.Result;
 using Mediator;
 using ServiceBusToolset.Application.Common.ServiceBus.Models;
 using ServiceBusToolset.Application.DeadLetters.Common;
@@ -6,12 +7,14 @@ using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq;
 using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Models;
 using ServiceBusToolset.Application.DeadLetters.DumpDlq;
 using ServiceBusToolset.CLI.Common.Commands;
+using ServiceBusToolset.CLI.Common.Extensions;
 using ServiceBusToolset.CLI.Common.Logging;
+using Unit = Mediator.Unit;
 
 namespace ServiceBusToolset.CLI.DeadLetters.DiagnoseDlq;
 
-public sealed class DiagnoseDlqCommandHandler(ISender mediator,
-                                              IConsoleOutput output) : BaseCommandHandler(output)
+public sealed class DiagnoseDlqCommandHandler(ISender mediator, IConsoleOutput output)
+    : BaseCommandHandler<DiagnoseDlqCliCommand, Unit>(output)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -19,40 +22,32 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public async Task<int> ExecuteAsync(DiagnoseDlqCliCommand cliCommand, CancellationToken cancellationToken = default)
+    protected override async Task<Result<Unit>> ExecuteCoreAsync(
+        DiagnoseDlqCliCommand command,
+        bool verbose,
+        CancellationToken cancellationToken = default)
     {
-        var validationError = cliCommand.Validate();
-        if (validationError != null)
-        {
-            Output.Error(validationError);
-            return 1;
-        }
-
-        var target = CreateTarget(cliCommand);
+        var target = CreateTarget(command);
         var entityDescription = target.GetDescription();
 
-        return await ExecuteWithExceptionHandling(async () =>
-                                                  {
-                                                      Output.Info("Connecting to Application Insights...");
-                                                      Output.Verbose($"Connected to App Insights: {cliCommand.AppInsightsResourceId}", cliCommand.Verbose);
+        Output.Info("Connecting to Application Insights...");
+        Output.Verbose($"Connected to App Insights: {command.AppInsightsResourceId}", verbose);
 
-                                                      if (cliCommand.Interactive)
-                                                      {
-                                                          return await ExecuteInteractiveDiagnoseAsync(cliCommand,
-                                                                                                       target,
-                                                                                                       entityDescription,
-                                                                                                       cancellationToken);
-                                                      }
+        if (command.Interactive)
+        {
+            return await ExecuteInteractiveDiagnoseAsync(command,
+                                                         target,
+                                                         entityDescription,
+                                                         cancellationToken);
+        }
 
-                                                      return await ExecuteDiagnoseAsync(cliCommand,
-                                                                                        target,
-                                                                                        entityDescription,
-                                                                                        cancellationToken);
-                                                  },
-                                                  cliCommand.Verbose);
+        return await ExecuteDiagnoseAsync(command,
+                                          target,
+                                          entityDescription,
+                                          cancellationToken);
     }
 
-    private async Task<int> ExecuteDiagnoseAsync(
+    private async Task<Result<Unit>> ExecuteDiagnoseAsync(
         DiagnoseDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
@@ -76,10 +71,16 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
 
         Console.WriteLine();
 
-        return HandleResult(result, r => OutputDiagnoseResults(r, cliCommand));
+        if (!result.IsSuccess)
+        {
+            return result.ToErrorResult<Unit>();
+        }
+
+        OutputDiagnoseResults(result.Value, cliCommand);
+        return Result.Success(Unit.Value);
     }
 
-    private async Task<int> ExecuteInteractiveDiagnoseAsync(
+    private async Task<Result<Unit>> ExecuteInteractiveDiagnoseAsync(
         DiagnoseDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
@@ -99,12 +100,7 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
 
         if (!categoriesResult.IsSuccess)
         {
-            foreach (var error in categoriesResult.Errors)
-            {
-                Output.Error(error);
-            }
-
-            return 1;
+            return categoriesResult.ToErrorResult<Unit>();
         }
 
         var categories = categoriesResult.Value.Categories;
@@ -112,11 +108,13 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
         if (categories.Count == 0)
         {
             Output.Info("No messages found in DLQ.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
-        DlqCategoryDisplay.DisplayTable(categories, categoriesResult.Value.TotalMessageCount,
-                                        Output.Info, Output.Table);
+        DlqCategoryDisplay.DisplayTable(categories,
+                                        categoriesResult.Value.TotalMessageCount,
+                                        Output.Info,
+                                        Output.Table);
 
         Output.Info("");
         Console.Write("Select categories to diagnose (comma-separated numbers, 'all', or 'q' to quit): ");
@@ -126,13 +124,13 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
         if (selectedIndices == null)
         {
             Output.Info("Operation cancelled.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
         if (selectedIndices.Count == 0)
         {
             Output.Warning("No valid categories selected.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
         var selection = CategorySelection.Build(categories, selectedIndices);
@@ -155,7 +153,13 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
 
         Console.WriteLine();
 
-        return HandleResult(result, r => OutputDiagnoseResults(r, cliCommand));
+        if (!result.IsSuccess)
+        {
+            return result.ToErrorResult<Unit>();
+        }
+
+        OutputDiagnoseResults(result.Value, cliCommand);
+        return Result.Success(Unit.Value);
     }
 
     private void OutputDiagnoseResults(DiagnoseDlqResult result, DiagnoseDlqCliCommand cliCommand)
@@ -168,7 +172,6 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
 
         Output.Info($"Queried App Insights for {result.TotalProcessed - result.SkippedNoOperationId} messages (skipped {result.SkippedNoOperationId} without operation ID)");
 
-        // Filter to only results with actual telemetry
         var resultsWithTelemetry = result.Results
                                          .Where(r => r.Exceptions.Count > 0 || r.Traces.Count > 0 || r.FailedDependencies.Count > 0)
                                          .ToList();
@@ -185,10 +188,8 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
 
         Output.Success($"Found telemetry for {resultsWithTelemetry.Count} of {result.Results.Count} messages");
 
-        // Print summary to console - grouped by Subject
         PrintDiagnosticSummary(resultsWithTelemetry);
 
-        // Write to file if specified
         if (!string.IsNullOrEmpty(cliCommand.OutputFile))
         {
             var json = JsonSerializer.Serialize(resultsWithTelemetry, JsonOptions);
@@ -203,7 +204,6 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
         Output.Info("Diagnostic Summary by Message Type:");
         Output.Info("====================================");
 
-        // Group by Subject (message type)
         var groupedBySubject = results
                                .GroupBy(r => r.Subject ?? "(none)")
                                .OrderByDescending(g => g.Count());
@@ -217,7 +217,6 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
             Output.Info($"[{subjectGroup.Key}] - {messageCount} messages, {totalExceptions} exceptions");
             Output.Info(new string('-', 60));
 
-            // Get exceptions for this subject, grouped by type only
             var exceptionGroups = subjectGroup
                                   .SelectMany(r => r.Exceptions)
                                   .GroupBy(e => e.ExceptionType ?? "(unknown)")
@@ -246,7 +245,6 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
                 Output.Info("  No exceptions found (check traces/dependencies in output file)");
             }
 
-            // Show failed dependencies if any
             var dependencyGroups = subjectGroup
                                    .SelectMany(r => r.FailedDependencies)
                                    .GroupBy(d => new
@@ -269,7 +267,6 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
             }
         }
 
-        // Overall summary
         Output.Info("");
         Output.Info("Overall Top Exceptions:");
         Output.Info("=======================");
@@ -314,7 +311,6 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
 
     private static string GetExceptionMessage(ExceptionInfo ex)
     {
-        // Prefer innermostMessage, fall back to outerMessage
         if (!string.IsNullOrWhiteSpace(ex.InnermostMessage))
         {
             return ex.InnermostMessage;

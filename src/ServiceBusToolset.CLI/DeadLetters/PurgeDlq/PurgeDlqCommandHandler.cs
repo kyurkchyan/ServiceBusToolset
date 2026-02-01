@@ -1,65 +1,62 @@
+using Ardalis.Result;
 using Mediator;
 using ServiceBusToolset.Application.Common.ServiceBus.Models;
 using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.DumpDlq;
 using ServiceBusToolset.Application.DeadLetters.PurgeDlq;
 using ServiceBusToolset.CLI.Common.Commands;
+using ServiceBusToolset.CLI.Common.Extensions;
 using ServiceBusToolset.CLI.Common.Logging;
+using Unit = Mediator.Unit;
 
 namespace ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
 
-public sealed class PurgeDlqCommandHandler(ISender mediator,
-                                           IConsoleOutput output) : BaseCommandHandler(output)
+public sealed class PurgeDlqCommandHandler(ISender mediator, IConsoleOutput output)
+    : BaseCommandHandler<PurgeDlqCliCommand, Unit>(output)
 {
-    public async Task<int> ExecuteAsync(PurgeDlqCliCommand cliCommand, CancellationToken cancellationToken = default)
+    protected override async Task<Result<Unit>> ExecuteCoreAsync(
+        PurgeDlqCliCommand command,
+        bool verbose,
+        CancellationToken cancellationToken = default)
     {
-        var validationError = cliCommand.Validate();
-        if (validationError != null)
-        {
-            Output.Error(validationError);
-            return 1;
-        }
-
-        var target = CreateTarget(cliCommand);
+        var target = CreateTarget(command);
         var entityDescription = target.GetDescription();
 
-        return await ExecuteWithExceptionHandling(async () =>
-                                                  {
-                                                      if (cliCommand.DryRun)
-                                                      {
-                                                          return await ExecuteDryRunAsync(cliCommand,
-                                                                                          target,
-                                                                                          entityDescription,
-                                                                                          cancellationToken);
-                                                      }
+        if (command.DryRun)
+        {
+            return await ExecuteDryRunAsync(command,
+                                            target,
+                                            entityDescription,
+                                            verbose,
+                                            cancellationToken);
+        }
 
-                                                      if (cliCommand.Interactive)
-                                                      {
-                                                          return await ExecuteInteractivePurgeAsync(cliCommand,
-                                                                                                    target,
-                                                                                                    entityDescription,
-                                                                                                    cancellationToken);
-                                                      }
+        if (command.Interactive)
+        {
+            return await ExecuteInteractivePurgeAsync(command,
+                                                      target,
+                                                      entityDescription,
+                                                      cancellationToken);
+        }
 
-                                                      return await ExecutePurgeAsync(cliCommand,
-                                                                                     target,
-                                                                                     entityDescription,
-                                                                                     cancellationToken);
-                                                  },
-                                                  cliCommand.Verbose);
+        return await ExecutePurgeAsync(command,
+                                       target,
+                                       entityDescription,
+                                       cancellationToken);
     }
 
-    private async Task<int> ExecuteDryRunAsync(
+    private async Task<Result<Unit>> ExecuteDryRunAsync(
         PurgeDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
+        bool verbose,
         CancellationToken cancellationToken)
     {
         Output.Info($"[DRY RUN] Counting messages in DLQ for {entityDescription}...");
 
         if (cliCommand.BeforeEnqueueTime.HasValue)
         {
-            Output.Verbose("Using slow count due to --before filter", cliCommand.Verbose);
+            Output.Verbose("Using slow count due to --before filter", verbose);
         }
 
         var progress = cliCommand.BeforeEnqueueTime.HasValue
@@ -78,21 +75,24 @@ public sealed class PurgeDlqCommandHandler(ISender mediator,
             Console.WriteLine();
         }
 
-        return HandleResult(result,
-                            r =>
-                            {
-                                if (r.FilteredCount.HasValue)
-                                {
-                                    Output.Success($"[DRY RUN] Found {r.FilteredCount} messages enqueued before {r.BeforeTime:O} (total: {r.TotalCount})");
-                                }
-                                else
-                                {
-                                    Output.Success($"[DRY RUN] Found {r.TotalCount} messages in DLQ for {entityDescription}");
-                                }
-                            });
+        if (!result.IsSuccess)
+        {
+            return result.ToErrorResult<Unit>();
+        }
+
+        if (result.Value.FilteredCount.HasValue)
+        {
+            Output.Success($"[DRY RUN] Found {result.Value.FilteredCount} messages enqueued before {result.Value.BeforeTime:O} (total: {result.Value.TotalCount})");
+        }
+        else
+        {
+            Output.Success($"[DRY RUN] Found {result.Value.TotalCount} messages in DLQ for {entityDescription}");
+        }
+
+        return Result.Success(Unit.Value);
     }
 
-    private async Task<int> ExecutePurgeAsync(
+    private async Task<Result<Unit>> ExecutePurgeAsync(
         PurgeDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
@@ -112,21 +112,24 @@ public sealed class PurgeDlqCommandHandler(ISender mediator,
 
         Console.WriteLine();
 
-        return HandleResult(result,
-                            r =>
-                            {
-                                if (r.SkippedCount > 0)
-                                {
-                                    Output.Success($"Purged {r.PurgedCount} messages from DLQ for {entityDescription} (skipped {r.SkippedCount} newer messages)");
-                                }
-                                else
-                                {
-                                    Output.Success($"Purged {r.PurgedCount} messages from DLQ for {entityDescription}");
-                                }
-                            });
+        if (!result.IsSuccess)
+        {
+            return result.ToErrorResult<Unit>();
+        }
+
+        if (result.Value.SkippedCount > 0)
+        {
+            Output.Success($"Purged {result.Value.PurgedCount} messages from DLQ for {entityDescription} (skipped {result.Value.SkippedCount} newer messages)");
+        }
+        else
+        {
+            Output.Success($"Purged {result.Value.PurgedCount} messages from DLQ for {entityDescription}");
+        }
+
+        return Result.Success(Unit.Value);
     }
 
-    private async Task<int> ExecuteInteractivePurgeAsync(
+    private async Task<Result<Unit>> ExecuteInteractivePurgeAsync(
         PurgeDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
@@ -146,12 +149,7 @@ public sealed class PurgeDlqCommandHandler(ISender mediator,
 
         if (!categoriesResult.IsSuccess)
         {
-            foreach (var error in categoriesResult.Errors)
-            {
-                Output.Error(error);
-            }
-
-            return 1;
+            return categoriesResult.ToErrorResult<Unit>();
         }
 
         var categories = categoriesResult.Value.Categories;
@@ -159,11 +157,13 @@ public sealed class PurgeDlqCommandHandler(ISender mediator,
         if (categories.Count == 0)
         {
             Output.Info("No messages found in DLQ.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
-        DlqCategoryDisplay.DisplayTable(categories, categoriesResult.Value.TotalMessageCount,
-                                        Output.Info, Output.Table);
+        DlqCategoryDisplay.DisplayTable(categories,
+                                        categoriesResult.Value.TotalMessageCount,
+                                        Output.Info,
+                                        Output.Table);
 
         Output.Info("");
         Console.Write("Select categories to purge (comma-separated numbers, 'all', or 'q' to quit): ");
@@ -173,13 +173,13 @@ public sealed class PurgeDlqCommandHandler(ISender mediator,
         if (selectedIndices == null)
         {
             Output.Info("Operation cancelled.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
         if (selectedIndices.Count == 0)
         {
             Output.Warning("No valid categories selected.");
-            return 0;
+            return Result.Success(Unit.Value);
         }
 
         var selection = CategorySelection.Build(categories, selectedIndices);
@@ -198,11 +198,14 @@ public sealed class PurgeDlqCommandHandler(ISender mediator,
 
         Console.WriteLine();
 
-        return HandleResult(purgeResult,
-                            r =>
-                            {
-                                Output.Success($"Purged {r.PurgedCount} messages from DLQ for {entityDescription}.");
-                            });
+        if (!purgeResult.IsSuccess)
+        {
+            return purgeResult.ToErrorResult<Unit>();
+        }
+
+        Output.Success($"Purged {purgeResult.Value.PurgedCount} messages from DLQ for {entityDescription}.");
+
+        return Result.Success(Unit.Value);
     }
 
     private Progress<(int Purged, int Skipped)> CreatePurgeProgressReporter()
