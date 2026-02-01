@@ -2,8 +2,6 @@ using CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using ServiceBusToolset.Application;
 using ServiceBusToolset.CLI;
-using ServiceBusToolset.CLI.Common.Logging;
-using ServiceBusToolset.CLI.Common.Queues;
 using ServiceBusToolset.CLI.DeadLetters.DiagnoseDlq;
 using ServiceBusToolset.CLI.DeadLetters.DumpDlq;
 using ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
@@ -48,12 +46,11 @@ return await Parser.Default.ParseArguments<PurgeDlqCliCommand, ResubmitDlqCliCom
                                   var handler = scope.ServiceProvider.GetRequiredService<DiagnoseDlqCommandHandler>();
                                   return await handler.ExecuteAsync(opts, cts.Token);
                               },
-                              (MonitorQueuesCliCommand opts) =>
+                              async (MonitorQueuesCliCommand opts) =>
                               {
-                                  var queueMonitorService = provider.GetRequiredService<IQueueMonitorService>();
-                                  var output = provider.GetRequiredService<IConsoleOutput>();
-                                  var command = new MonitorQueuesCommand(queueMonitorService, output);
-                                  return command.ExecuteAsync(opts, cts.Token);
+                                  using var scope = provider.CreateScope();
+                                  var handler = scope.ServiceProvider.GetRequiredService<MonitorQueuesCommandHandler>();
+                                  return await handler.ExecuteAsync(opts, cts.Token);
                               },
                               errors => Task.FromResult(HandleParseErrors(errors)));
 

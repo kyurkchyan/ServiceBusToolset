@@ -1,4 +1,4 @@
-namespace ServiceBusToolset.CLI.Common.Queues;
+namespace ServiceBusToolset.Application.Queues.MonitorQueues.Models;
 
 public record QueueStatistics(string Name,
                               long ActiveMessageCount,

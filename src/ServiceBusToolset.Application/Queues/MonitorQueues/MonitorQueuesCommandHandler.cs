@@ -1,30 +1,37 @@
 using System.Reactive.Linq;
 using System.Text.RegularExpressions;
+using Ardalis.Result;
 using Azure.Messaging.ServiceBus.Administration;
+using Mediator;
 using ServiceBusToolset.Application.Common.ServiceBus.Abstractions;
+using ServiceBusToolset.Application.Queues.MonitorQueues.Models;
 
-namespace ServiceBusToolset.CLI.Common.Queues;
+namespace ServiceBusToolset.Application.Queues.MonitorQueues;
 
-public class QueueMonitorService(IServiceBusClientFactory clientFactory) : IQueueMonitorService
+public sealed class MonitorQueuesCommandHandler(IServiceBusClientFactory clientFactory)
+    : ICommandHandler<MonitorQueuesCommand, Result<MonitorQueuesResult>>
 {
-    public IObservable<IReadOnlyList<QueueStatistics>> ObserveQueues(
-        string fullyQualifiedNamespace,
-        string? queueFilter,
-        TimeSpan refreshInterval,
+    public ValueTask<Result<MonitorQueuesResult>> Handle(
+        MonitorQueuesCommand command,
         CancellationToken cancellationToken)
     {
-        var adminClient = clientFactory.CreateAdministrationClient(fullyQualifiedNamespace);
-        var filterPredicate = CreateFilterPredicate(queueFilter);
+        var adminClient = clientFactory.CreateAdministrationClient(command.FullyQualifiedNamespace);
+        var filterPredicate = CreateFilterPredicate(command.QueueFilter);
 
-        return Observable
-               .Timer(TimeSpan.Zero, refreshInterval)
-               .TakeUntil(Observable.Create<long>(observer =>
-               {
-                   cancellationToken.Register(() => observer.OnNext(0));
-                   return () => { };
-               }))
-               .SelectMany(_ => Observable.FromAsync(ct => FetchQueueStatisticsAsync(adminClient, filterPredicate, ct)))
-               .DistinctUntilChanged(new QueueStatisticsListComparer());
+        var observable = Observable
+                         .Timer(TimeSpan.Zero, command.RefreshInterval)
+                         .TakeUntil(Observable.Create<long>(observer =>
+                         {
+                             command.CancellationToken.Register(() => observer.OnNext(0));
+                             return () => { };
+                         }))
+                         .SelectMany(_ => Observable.FromAsync(ct =>
+                                                                   FetchQueueStatisticsAsync(adminClient,
+                                                                                             filterPredicate,
+                                                                                             ct)))
+                         .DistinctUntilChanged(new QueueStatisticsListComparer());
+
+        return ValueTask.FromResult(Result.Success(new MonitorQueuesResult(observable)));
     }
 
     private static async Task<IReadOnlyList<QueueStatistics>> FetchQueueStatisticsAsync(
@@ -59,10 +66,8 @@ public class QueueMonitorService(IServiceBusClientFactory clientFactory) : IQueu
             return _ => true;
         }
 
-        // Check if filter contains wildcards
         if (filter.Contains('*') || filter.Contains('?'))
         {
-            // Convert wildcard pattern to regex
             var regexPattern = "^" + Regex.Escape(filter)
                                           .Replace("\\*", ".*")
                                           .Replace("\\?", ".") + "$";
@@ -70,11 +75,10 @@ public class QueueMonitorService(IServiceBusClientFactory clientFactory) : IQueu
             return name => regex.IsMatch(name);
         }
 
-        // Default to contains match
         return name => name.Contains(filter, StringComparison.OrdinalIgnoreCase);
     }
 
-    private class QueueStatisticsListComparer : IEqualityComparer<IReadOnlyList<QueueStatistics>>
+    private sealed class QueueStatisticsListComparer : IEqualityComparer<IReadOnlyList<QueueStatistics>>
     {
         public bool Equals(IReadOnlyList<QueueStatistics>? x, IReadOnlyList<QueueStatistics>? y)
         {
