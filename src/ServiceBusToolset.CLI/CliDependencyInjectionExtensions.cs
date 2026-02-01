@@ -2,9 +2,10 @@ using Microsoft.Extensions.DependencyInjection;
 using ServiceBusToolset.CLI.Common.Logging;
 using ServiceBusToolset.CLI.Common.Queues;
 using ServiceBusToolset.CLI.Common.ServiceBus;
-using ServiceBusToolset.CLI.DeadLetters.Common;
 using ServiceBusToolset.CLI.DeadLetters.DiagnoseDlq;
 using ServiceBusToolset.CLI.DeadLetters.DumpDlq;
+using ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
+using ServiceBusToolset.CLI.DeadLetters.ResubmitDlqMessages;
 using IServiceBusClientFactory = ServiceBusToolset.Application.Common.ServiceBus.Abstractions.IServiceBusClientFactory;
 
 namespace ServiceBusToolset.CLI;
@@ -21,9 +22,8 @@ public static class CliDependencyInjectionExtensions
         // Command handlers
         services.AddScoped<DumpDlqCommandHandler>();
         services.AddScoped<DiagnoseDlqCommandHandler>();
-
-        // Legacy services (for other commands not yet migrated)
-        services.AddSingleton<IDlqCategoryAnalyzer, DlqCategoryAnalyzer>();
+        services.AddScoped<PurgeDlqCommandHandler>();
+        services.AddScoped<ResubmitDlqCommandHandler>();
 
         return services;
     }

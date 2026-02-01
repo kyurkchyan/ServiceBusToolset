@@ -31,12 +31,13 @@ public static class ReceiverFactory
     /// </summary>
     public static ServiceBusReceiver CreateDlqReceiver(
         ServiceBusClient client,
-        EntityTarget target)
+        EntityTarget target,
+        ServiceBusReceiveMode receiveMode = ServiceBusReceiveMode.PeekLock)
     {
         var options = new ServiceBusReceiverOptions
         {
             SubQueue = SubQueue.DeadLetter,
-            ReceiveMode = ServiceBusReceiveMode.PeekLock
+            ReceiveMode = receiveMode
         };
 
         return CreateReceiver(client, target, options);

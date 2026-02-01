@@ -1,11 +1,9 @@
 using CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using ServiceBusToolset.Application;
-using ServiceBusToolset.Application.Common.ServiceBus.Abstractions;
 using ServiceBusToolset.CLI;
 using ServiceBusToolset.CLI.Common.Logging;
 using ServiceBusToolset.CLI.Common.Queues;
-using ServiceBusToolset.CLI.DeadLetters.Common;
 using ServiceBusToolset.CLI.DeadLetters.DiagnoseDlq;
 using ServiceBusToolset.CLI.DeadLetters.DumpDlq;
 using ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
@@ -32,21 +30,17 @@ return await Parser.Default.ParseArguments<PurgeDlqCliCommand, ResubmitDlqCliCom
                                   var handler = scope.ServiceProvider.GetRequiredService<DumpDlqCommandHandler>();
                                   return await handler.ExecuteAsync(opts, cts.Token);
                               },
-                              (PurgeDlqCliCommand opts) =>
+                              async (PurgeDlqCliCommand opts) =>
                               {
-                                  var clientFactory = provider.GetRequiredService<IServiceBusClientFactory>();
-                                  var output = provider.GetRequiredService<IConsoleOutput>();
-                                  var categoryAnalyzer = provider.GetRequiredService<IDlqCategoryAnalyzer>();
-                                  var command = new PurgeDlqCommand(clientFactory, output, categoryAnalyzer);
-                                  return command.ExecuteAsync(opts, cts.Token);
+                                  using var scope = provider.CreateScope();
+                                  var handler = scope.ServiceProvider.GetRequiredService<PurgeDlqCommandHandler>();
+                                  return await handler.ExecuteAsync(opts, cts.Token);
                               },
-                              (ResubmitDlqCliCommand opts) =>
+                              async (ResubmitDlqCliCommand opts) =>
                               {
-                                  var clientFactory = provider.GetRequiredService<IServiceBusClientFactory>();
-                                  var output = provider.GetRequiredService<IConsoleOutput>();
-                                  var categoryAnalyzer = provider.GetRequiredService<IDlqCategoryAnalyzer>();
-                                  var command = new ResubmitDlqCommand(clientFactory, output, categoryAnalyzer);
-                                  return command.ExecuteAsync(opts, cts.Token);
+                                  using var scope = provider.CreateScope();
+                                  var handler = scope.ServiceProvider.GetRequiredService<ResubmitDlqCommandHandler>();
+                                  return await handler.ExecuteAsync(opts, cts.Token);
                               },
                               async (DiagnoseDlqCliCommand opts) =>
                               {
