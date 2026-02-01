@@ -7,7 +7,7 @@ using ServiceBusToolset.CLI.Common.Queues;
 using ServiceBusToolset.CLI.DeadLetters.DiagnoseDlq;
 using ServiceBusToolset.CLI.DeadLetters.DumpDlq;
 using ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
-using ServiceBusToolset.CLI.DeadLetters.ResubmitDlqMessages;
+using ServiceBusToolset.CLI.DeadLetters.ResubmitDlq;
 using ServiceBusToolset.CLI.Queues.MonitorQueues;
 
 var services = new ServiceCollection();

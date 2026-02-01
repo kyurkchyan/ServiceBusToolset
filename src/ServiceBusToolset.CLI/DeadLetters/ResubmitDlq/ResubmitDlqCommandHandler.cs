@@ -6,7 +6,7 @@ using ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 using ServiceBusToolset.CLI.Common.Commands;
 using ServiceBusToolset.CLI.Common.Logging;
 
-namespace ServiceBusToolset.CLI.DeadLetters.ResubmitDlqMessages;
+namespace ServiceBusToolset.CLI.DeadLetters.ResubmitDlq;
 
 public sealed class ResubmitDlqCommandHandler(ISender mediator,
                                               IConsoleOutput output) : BaseCommandHandler(output)
@@ -164,13 +164,14 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
             return 0;
         }
 
-        DisplayCategoryTable(categories, categoriesResult.Value.TotalMessageCount);
+        DlqCategoryDisplay.DisplayTable(categories, categoriesResult.Value.TotalMessageCount,
+                                        Output.Info, Output.Table);
 
         Output.Info("");
         Console.Write("Select categories to resubmit (comma-separated numbers, 'all', or 'q' to quit): ");
         var input = Output.ReadLine();
 
-        var selectedIndices = ParseSelection(input, categories.Count);
+        var selectedIndices = CategorySelectionParser.Parse(input, categories.Count);
         if (selectedIndices == null)
         {
             Output.Info("Operation cancelled.");
@@ -183,16 +184,10 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
             return 0;
         }
 
-        var selectedCategories = new HashSet<DlqCategoryKey>();
-        var totalToResubmit = 0;
-        foreach (var cat in selectedIndices.Select(idx => categories[idx]))
-        {
-            selectedCategories.Add(new DlqCategoryKey(cat.Label, cat.DeadLetterReason));
-            totalToResubmit += cat.Count;
-        }
+        var selection = CategorySelection.Build(categories, selectedIndices);
 
         var targetInfo = GetTargetInfo(cliCommand);
-        Output.Info($"Resubmitting {totalToResubmit} messages from {selectedIndices.Count} categories{targetInfo}...");
+        Output.Info($"Resubmitting {selection.SelectedCount} messages from {selection.SelectedCategoryCount} categories{targetInfo}...");
 
         var resubmitProgress = CreateResubmitProgressReporter();
 
@@ -200,7 +195,7 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
                                                              target,
                                                              cliCommand.EffectiveTarget,
                                                              cliCommand.BeforeEnqueueTime,
-                                                             selectedCategories,
+                                                             selection.SelectedKeys,
                                                              resubmitProgress);
 
         var resubmitResult = await mediator.Send(resubmitCommand, cancellationToken);
@@ -212,84 +207,6 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
                             {
                                 Output.Success($"Resubmitted {r.ResubmittedCount} messages from DLQ for {entityDescription}{targetInfo}.");
                             });
-    }
-
-    private void DisplayCategoryTable(IEnumerable<DlqCategory> categories, int totalCount)
-    {
-        Output.Info("");
-        Output.Info("Dead Letter Summary:");
-
-        var headers = new[]
-        {
-            "#",
-            "Label",
-            "DeadLetterReason",
-            "Count"
-        };
-        var rows = categories.Select((cat, index) => new[]
-        {
-            (index + 1).ToString(),
-            cat.Label.ReplaceLineEndings(" "),
-            cat.DeadLetterReason.ReplaceLineEndings(" "),
-            cat.Count.ToString()
-        });
-
-        Output.Table(headers, rows);
-        Output.Info($"Total: {totalCount} messages");
-    }
-
-    private static List<int>? ParseSelection(string? input, int maxIndex)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return null;
-        }
-
-        var trimmed = input.Trim().ToLowerInvariant();
-
-        switch (trimmed)
-        {
-            case "q":
-            case "quit":
-                return null;
-            case "all":
-            case "a":
-                return Enumerable.Range(0, maxIndex).ToList();
-        }
-
-        var indices = new List<int>();
-        var parts = input.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        foreach (var part in parts)
-        {
-            if (part.Contains('-'))
-            {
-                var rangeParts = part.Split('-', 2);
-                if (rangeParts.Length == 2 &&
-                    int.TryParse(rangeParts[0], out var start) &&
-                    int.TryParse(rangeParts[1], out var end))
-                {
-                    for (var i = start; i <= end; i++)
-                    {
-                        var idx = i - 1;
-                        if (idx >= 0 && idx < maxIndex && !indices.Contains(idx))
-                        {
-                            indices.Add(idx);
-                        }
-                    }
-                }
-            }
-            else if (int.TryParse(part, out var num))
-            {
-                var idx = num - 1;
-                if (idx >= 0 && idx < maxIndex && !indices.Contains(idx))
-                {
-                    indices.Add(idx);
-                }
-            }
-        }
-
-        return indices;
     }
 
     private IProgress<(int Resubmitted, int Skipped)> CreateResubmitProgressReporter()
@@ -320,12 +237,7 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator,
     }
 
     private static EntityTarget CreateTarget(ResubmitDlqCliCommand cliCommand)
-    {
-        if (cliCommand.IsQueueMode)
-        {
-            return EntityTarget.ForQueue(cliCommand.Queue!);
-        }
-
-        return EntityTarget.ForSubscription(cliCommand.Topic!, cliCommand.Subscription!);
-    }
+        => cliCommand.IsQueueMode
+               ? EntityTarget.ForQueue(cliCommand.Queue!)
+               : EntityTarget.ForSubscription(cliCommand.Topic!, cliCommand.Subscription!);
 }

@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace ServiceBusToolset.CLI.DeadLetters.ResubmitDlqMessages;
+namespace ServiceBusToolset.CLI.DeadLetters.ResubmitDlq;
 
 [Verb("resubmit-dlq", HelpText = "Resubmit messages from a dead letter queue back to the main queue")]
 public class ResubmitDlqCliCommand

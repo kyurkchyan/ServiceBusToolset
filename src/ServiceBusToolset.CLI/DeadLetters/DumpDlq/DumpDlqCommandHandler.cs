@@ -162,13 +162,14 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
             return 0;
         }
 
-        DisplayCategoryTable(categories, categoriesResult.Value.TotalMessageCount);
+        DlqCategoryDisplay.DisplayTable(categories, categoriesResult.Value.TotalMessageCount,
+                                        Output.Info, Output.Table);
 
         Output.Info("");
         Console.Write("Select categories to dump (comma-separated numbers, 'all', or 'q' to quit): ");
         var input = Output.ReadLine();
 
-        var selectedIndices = ParseSelection(input, categories.Count);
+        var selectedIndices = CategorySelectionParser.Parse(input, categories.Count);
         if (selectedIndices == null)
         {
             Output.Info("Operation cancelled.");
@@ -181,15 +182,9 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
             return 0;
         }
 
-        var selectedCategories = new HashSet<DlqCategoryKey>();
-        var totalToDump = 0;
-        foreach (var cat in selectedIndices.Select(idx => categories[idx]))
-        {
-            selectedCategories.Add(new DlqCategoryKey(cat.Label, cat.DeadLetterReason));
-            totalToDump += cat.Count;
-        }
+        var selection = CategorySelection.Build(categories, selectedIndices);
 
-        Output.Info($"Dumping {totalToDump} messages from {selectedIndices.Count} categories...");
+        Output.Info($"Dumping {selection.SelectedCount} messages from {selection.SelectedCategoryCount} categories...");
 
         var dumpProgress = CreateProgressReporter("Peeked {0} messages...");
 
@@ -197,7 +192,7 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
                                                      target,
                                                      cliCommand.OutputFile!,
                                                      cliCommand.BeforeEnqueueTime,
-                                                     selectedCategories,
+                                                     selection.SelectedKeys,
                                                      dumpProgress);
 
         var dumpResult = await mediator.Send(dumpCommand, cancellationToken);
@@ -211,91 +206,8 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
                             });
     }
 
-    private void DisplayCategoryTable(IEnumerable<DlqCategory> categories, int totalCount)
-    {
-        Output.Info("");
-        Output.Info("Dead Letter Summary:");
-
-        var headers = new[]
-        {
-            "#",
-            "Label",
-            "DeadLetterReason",
-            "Count"
-        };
-        var rows = categories.Select((cat, index) => new[]
-        {
-            (index + 1).ToString(),
-            cat.Label.ReplaceLineEndings(" "),
-            cat.DeadLetterReason.ReplaceLineEndings(" "),
-            cat.Count.ToString()
-        });
-
-        Output.Table(headers, rows);
-        Output.Info($"Total: {totalCount} messages");
-    }
-
-    private static List<int>? ParseSelection(string? input, int maxIndex)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return null;
-        }
-
-        var trimmed = input.Trim().ToLowerInvariant();
-
-        switch (trimmed)
-        {
-            case "q":
-            case "quit":
-                return null;
-            case "all":
-            case "a":
-                return Enumerable.Range(0, maxIndex).ToList();
-        }
-
-        var indices = new List<int>();
-        var parts = input.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        foreach (var part in parts)
-        {
-            if (part.Contains('-'))
-            {
-                var rangeParts = part.Split('-', 2);
-                if (rangeParts.Length == 2 &&
-                    int.TryParse(rangeParts[0], out var start) &&
-                    int.TryParse(rangeParts[1], out var end))
-                {
-                    for (var i = start; i <= end; i++)
-                    {
-                        var idx = i - 1;
-                        if (idx >= 0 && idx < maxIndex && !indices.Contains(idx))
-                        {
-                            indices.Add(idx);
-                        }
-                    }
-                }
-            }
-            else if (int.TryParse(part, out var num))
-            {
-                var idx = num - 1;
-                if (idx >= 0 && idx < maxIndex && !indices.Contains(idx))
-                {
-                    indices.Add(idx);
-                }
-            }
-        }
-
-        return indices;
-    }
-
     private static EntityTarget CreateTarget(DumpDlqCliCommand cliCommand)
-    {
-        if (cliCommand.IsQueueMode)
-        {
-            return EntityTarget.ForQueue(cliCommand.Queue!);
-        }
-
-        return EntityTarget.ForSubscription(cliCommand.Topic!, cliCommand.Subscription!);
-    }
+        => cliCommand.IsQueueMode
+               ? EntityTarget.ForQueue(cliCommand.Queue!)
+               : EntityTarget.ForSubscription(cliCommand.Topic!, cliCommand.Subscription!);
 }

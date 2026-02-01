@@ -5,7 +5,7 @@ using ServiceBusToolset.CLI.Common.ServiceBus;
 using ServiceBusToolset.CLI.DeadLetters.DiagnoseDlq;
 using ServiceBusToolset.CLI.DeadLetters.DumpDlq;
 using ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
-using ServiceBusToolset.CLI.DeadLetters.ResubmitDlqMessages;
+using ServiceBusToolset.CLI.DeadLetters.ResubmitDlq;
 using IServiceBusClientFactory = ServiceBusToolset.Application.Common.ServiceBus.Abstractions.IServiceBusClientFactory;
 
 namespace ServiceBusToolset.CLI;

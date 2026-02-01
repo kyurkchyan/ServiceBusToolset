@@ -115,13 +115,14 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
             return 0;
         }
 
-        DisplayCategoryTable(categories, categoriesResult.Value.TotalMessageCount);
+        DlqCategoryDisplay.DisplayTable(categories, categoriesResult.Value.TotalMessageCount,
+                                        Output.Info, Output.Table);
 
         Output.Info("");
         Console.Write("Select categories to diagnose (comma-separated numbers, 'all', or 'q' to quit): ");
         var input = Output.ReadLine();
 
-        var selectedIndices = ParseSelection(input, categories.Count);
+        var selectedIndices = CategorySelectionParser.Parse(input, categories.Count);
         if (selectedIndices == null)
         {
             Output.Info("Operation cancelled.");
@@ -134,15 +135,9 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
             return 0;
         }
 
-        var selectedCategories = new HashSet<DlqCategoryKey>();
-        var totalToDiagnose = 0;
-        foreach (var cat in selectedIndices.Select(idx => categories[idx]))
-        {
-            selectedCategories.Add(new DlqCategoryKey(cat.Label, cat.DeadLetterReason));
-            totalToDiagnose += cat.Count;
-        }
+        var selection = CategorySelection.Build(categories, selectedIndices);
 
-        Output.Info($"Diagnosing up to {Math.Min(totalToDiagnose, cliCommand.MaxMessages)} messages from {selectedIndices.Count} categories...");
+        Output.Info($"Diagnosing up to {Math.Min(selection.SelectedCount, cliCommand.MaxMessages)} messages from {selection.SelectedCategoryCount} categories...");
 
         var progress = CreateProgressReporter("Peeked {0} messages...");
         var batchProgress = CreateBatchProgressReporter();
@@ -152,7 +147,7 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
                                              cliCommand.AppInsightsResourceId,
                                              cliCommand.MaxMessages,
                                              cliCommand.BeforeEnqueueTime,
-                                             selectedCategories,
+                                             selection.SelectedKeys,
                                              progress,
                                              batchProgress);
 
@@ -304,84 +299,6 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
         }
     }
 
-    private void DisplayCategoryTable(IEnumerable<DlqCategory> categories, int totalCount)
-    {
-        Output.Info("");
-        Output.Info("Dead Letter Summary:");
-
-        var headers = new[]
-        {
-            "#",
-            "Label",
-            "DeadLetterReason",
-            "Count"
-        };
-        var rows = categories.Select((cat, index) => new[]
-        {
-            (index + 1).ToString(),
-            cat.Label.ReplaceLineEndings(" "),
-            cat.DeadLetterReason.ReplaceLineEndings(" "),
-            cat.Count.ToString()
-        });
-
-        Output.Table(headers, rows);
-        Output.Info($"Total: {totalCount} messages");
-    }
-
-    private static List<int>? ParseSelection(string? input, int maxIndex)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return null;
-        }
-
-        var trimmed = input.Trim().ToLowerInvariant();
-
-        switch (trimmed)
-        {
-            case "q":
-            case "quit":
-                return null;
-            case "all":
-            case "a":
-                return Enumerable.Range(0, maxIndex).ToList();
-        }
-
-        var indices = new List<int>();
-        var parts = input.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        foreach (var part in parts)
-        {
-            if (part.Contains('-'))
-            {
-                var rangeParts = part.Split('-', 2);
-                if (rangeParts.Length == 2 &&
-                    int.TryParse(rangeParts[0], out var start) &&
-                    int.TryParse(rangeParts[1], out var end))
-                {
-                    for (var i = start; i <= end; i++)
-                    {
-                        var idx = i - 1;
-                        if (idx >= 0 && idx < maxIndex && !indices.Contains(idx))
-                        {
-                            indices.Add(idx);
-                        }
-                    }
-                }
-            }
-            else if (int.TryParse(part, out var num))
-            {
-                var idx = num - 1;
-                if (idx >= 0 && idx < maxIndex && !indices.Contains(idx))
-                {
-                    indices.Add(idx);
-                }
-            }
-        }
-
-        return indices;
-    }
-
     private IProgress<(int Current, int Total)> CreateBatchProgressReporter()
     {
         return new Progress<(int Current, int Total)>(batch =>
@@ -391,7 +308,9 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator,
     }
 
     private static EntityTarget CreateTarget(DiagnoseDlqCliCommand cliCommand)
-        => cliCommand.IsQueueMode ? EntityTarget.ForQueue(cliCommand.Queue!) : EntityTarget.ForSubscription(cliCommand.Topic!, cliCommand.Subscription!);
+        => cliCommand.IsQueueMode
+               ? EntityTarget.ForQueue(cliCommand.Queue!)
+               : EntityTarget.ForSubscription(cliCommand.Topic!, cliCommand.Subscription!);
 
     private static string GetExceptionMessage(ExceptionInfo ex)
     {
