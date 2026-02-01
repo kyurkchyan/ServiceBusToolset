@@ -1,12 +1,14 @@
 using Ardalis.Result;
 using Mediator;
 using ServiceBusToolset.Application.Common.ServiceBus.Abstractions;
+using ServiceBusToolset.Application.Common.ServiceBus.Helpers;
+using ServiceBusToolset.Application.Common.ServiceBus.Serialization;
 using ServiceBusToolset.Application.DeadLetters.Common;
 
 namespace ServiceBusToolset.Application.DeadLetters.DumpDlq;
 
-public sealed class DumpDlqMessagesCommandHandler(IServiceBusClientFactory clientFactory,
-                                                  DlqMessageService messageService) : ICommandHandler<DumpDlqMessagesCommand, Result<DlqDumpResult>>
+public sealed class DumpDlqMessagesCommandHandler(IServiceBusClientFactory clientFactory)
+    : ICommandHandler<DumpDlqMessagesCommand, Result<DlqDumpResult>>
 {
     public async ValueTask<Result<DlqDumpResult>> Handle(
         DumpDlqMessagesCommand command,
@@ -19,7 +21,7 @@ public sealed class DumpDlqMessagesCommandHandler(IServiceBusClientFactory clien
                                                                        command.Progress,
                                                                        cancellationToken);
 
-        var filtered = DlqMessageService.FilterByTime(allMessages, command.BeforeTime);
+        var filtered = MessageFilters.FilterByEnqueueTime(allMessages, command.BeforeTime);
 
         if (command.CategoryFilter is { Count: > 0 })
         {
@@ -31,8 +33,8 @@ public sealed class DumpDlqMessagesCommandHandler(IServiceBusClientFactory clien
             return Result.Success(new DlqDumpResult(0, command.OutputFilePath));
         }
 
-        var dumpedMessages = DlqMessageService.ConvertToDto(filtered);
-        await messageService.WriteJsonAsync(command.OutputFilePath, dumpedMessages, cancellationToken);
+        var dumpedMessages = MessageSerializer.ToDtoList(filtered);
+        await MessageSerializer.WriteJsonAsync(command.OutputFilePath, dumpedMessages, cancellationToken);
 
         return Result.Success(new DlqDumpResult(dumpedMessages.Count, command.OutputFilePath));
     }

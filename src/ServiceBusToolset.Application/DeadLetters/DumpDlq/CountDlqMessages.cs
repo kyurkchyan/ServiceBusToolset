@@ -8,15 +8,13 @@ namespace ServiceBusToolset.Application.DeadLetters.DumpDlq;
 
 public sealed record DlqCountResult(long TotalCount, long? FilteredCount, DateTimeOffset? BeforeTime);
 
-public sealed record CountDlqMessagesCommand(
-    string FullyQualifiedNamespace,
-    EntityTarget Target,
-    DateTimeOffset? BeforeTime,
-    IProgress<int>? Progress = null) : ICommand<Result<DlqCountResult>>;
+public sealed record CountDlqMessagesCommand(string FullyQualifiedNamespace,
+                                             EntityTarget Target,
+                                             DateTimeOffset? BeforeTime,
+                                             IProgress<int>? Progress = null) : ICommand<Result<DlqCountResult>>;
 
-public sealed class CountDlqMessagesHandler(
-    IServiceBusClientFactory clientFactory,
-    DlqMessageService messageService) : ICommandHandler<CountDlqMessagesCommand, Result<DlqCountResult>>
+public sealed class CountDlqMessagesHandler(IServiceBusClientFactory clientFactory,
+                                            DlqMessageService messageService) : ICommandHandler<CountDlqMessagesCommand, Result<DlqCountResult>>
 {
     public async ValueTask<Result<DlqCountResult>> Handle(
         CountDlqMessagesCommand command,
@@ -34,10 +32,9 @@ public sealed class CountDlqMessagesHandler(
         CountDlqMessagesCommand command,
         CancellationToken cancellationToken)
     {
-        var count = await messageService.GetMessageCountAsync(
-            command.FullyQualifiedNamespace,
-            command.Target,
-            cancellationToken);
+        var count = await messageService.GetMessageCountAsync(command.FullyQualifiedNamespace,
+                                                              command.Target,
+                                                              cancellationToken);
 
         return Result.Success(new DlqCountResult(count, null, null));
     }
@@ -48,8 +45,7 @@ public sealed class CountDlqMessagesHandler(
     {
         await using var client = clientFactory.CreateClient(command.FullyQualifiedNamespace);
 
-        var counts = await DlqMessageService.CountMessagesWithFilterAsync(
-                                                                          client,
+        var counts = await DlqMessageService.CountMessagesWithFilterAsync(client,
                                                                           command.Target,
                                                                           command.BeforeTime!.Value,
                                                                           command.Progress,

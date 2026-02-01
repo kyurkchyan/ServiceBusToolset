@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using ServiceBusToolset.Application.DeadLetters.Common;
+using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Common.AppInsights;
 
 namespace ServiceBusToolset.Application;
 
@@ -13,6 +14,7 @@ public static class ApplicationDependencyInjectionExtensions
         });
 
         services.AddScoped<DlqMessageService>();
+        services.AddScoped<IAppInsightsService, AppInsightsService>();
 
         return services;
     }

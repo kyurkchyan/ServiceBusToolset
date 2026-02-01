@@ -66,9 +66,9 @@ public sealed class DumpDlqCommandHandler(ISender mediator,
                            : null;
 
         var countDlqCommand = new CountDlqMessagesCommand(cliCommand.Namespace,
-                                                  target,
-                                                  cliCommand.BeforeEnqueueTime,
-                                                  progress);
+                                                          target,
+                                                          cliCommand.BeforeEnqueueTime,
+                                                          progress);
 
         var result = await mediator.Send(countDlqCommand, cancellationToken);
 

@@ -7,10 +7,9 @@ using ServiceBusToolset.CLI.DeadLetters.Common;
 
 namespace ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
 
-public class PurgeDlqCommand(
-    IServiceBusClientFactory clientFactory,
-    IConsoleOutput output,
-    IDlqCategoryAnalyzer categoryAnalyzer) : BaseCommand<PurgeDlqCliCommand>(clientFactory, output), ICommand<PurgeDlqCliCommand>
+public class PurgeDlqCommand(IServiceBusClientFactory clientFactory,
+                             IConsoleOutput output,
+                             IDlqCategoryAnalyzer categoryAnalyzer) : BaseCommand<PurgeDlqCliCommand>(clientFactory, output), ICommand<PurgeDlqCliCommand>
 {
     private const int MaxBatchSize = 100;
     private static readonly TimeSpan MaxWaitTime = TimeSpan.FromSeconds(5);
@@ -278,13 +277,12 @@ public class PurgeDlqCommand(
         Output.Info($"Analyzing DLQ for {entityDescription}...");
 
         // Step 1: Peek all messages and build category dictionary
-        var categories = await categoryAnalyzer.AnalyzeCategoriesAsync(
-            client,
-            cliCommand.Queue,
-            cliCommand.Topic,
-            cliCommand.Subscription,
-            Output,
-            cancellationToken);
+        var categories = await categoryAnalyzer.AnalyzeCategoriesAsync(client,
+                                                                       cliCommand.Queue,
+                                                                       cliCommand.Topic,
+                                                                       cliCommand.Subscription,
+                                                                       Output,
+                                                                       cancellationToken);
 
         if (categories.Count == 0)
         {
@@ -316,7 +314,7 @@ public class PurgeDlqCommand(
         // Step 4: Build set of selected category keys
         var selectedCategories = new HashSet<(string Label, string Reason)>();
         var totalToPurge = 0;
-        foreach(var cat in selectedIndices.Select(idx => categories[idx]))
+        foreach (var cat in selectedIndices.Select(idx => categories[idx]))
         {
             selectedCategories.Add((cat.Label, cat.DeadLetterReason));
             totalToPurge += cat.Count;
@@ -325,7 +323,10 @@ public class PurgeDlqCommand(
         Output.Info($"Purging {totalToPurge} messages from {selectedIndices.Count} categories...");
 
         // Step 5: Receive messages and complete only those matching selected categories
-        var totalDeleted = await PurgeByCategoriesAsync(client, cliCommand, selectedCategories, cancellationToken);
+        var totalDeleted = await PurgeByCategoriesAsync(client,
+                                                        cliCommand,
+                                                        selectedCategories,
+                                                        cancellationToken);
 
         Console.WriteLine();
         Output.Success($"Purged {totalDeleted} messages from DLQ for {entityDescription}.");
@@ -337,7 +338,13 @@ public class PurgeDlqCommand(
         Output.Info("");
         Output.Info("Dead Letter Summary:");
 
-        var headers = new[] { "#", "Label", "DeadLetterReason", "Count" };
+        var headers = new[]
+        {
+            "#",
+            "Label",
+            "DeadLetterReason",
+            "Count"
+        };
         var rows = categories.Select((cat, index) => new[]
         {
             (index + 1).ToString(),
@@ -460,7 +467,7 @@ public class PurgeDlqCommand(
             // Process completions and abandons in parallel
             var tasks = new List<Task>();
             tasks.AddRange(toComplete.Select(m => receiver.CompleteMessageAsync(m, cancellationToken)));
-            tasks.AddRange(toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken: cancellationToken)));
+            tasks.AddRange(toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken:cancellationToken)));
             await Task.WhenAll(tasks);
 
             totalDeleted += toComplete.Count;

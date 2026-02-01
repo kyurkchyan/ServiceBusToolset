@@ -3,7 +3,7 @@ using ServiceBusToolset.CLI.Common.Logging;
 using ServiceBusToolset.CLI.Common.Queues;
 using ServiceBusToolset.CLI.Common.ServiceBus;
 using ServiceBusToolset.CLI.DeadLetters.Common;
-using ServiceBusToolset.CLI.DeadLetters.DianoseDlq.AppInsights;
+using ServiceBusToolset.CLI.DeadLetters.DiagnoseDlq;
 using ServiceBusToolset.CLI.DeadLetters.DumpDlq;
 using IServiceBusClientFactory = ServiceBusToolset.Application.Common.ServiceBus.Abstractions.IServiceBusClientFactory;
 
@@ -17,10 +17,10 @@ public static class CliDependencyInjectionExtensions
         services.AddSingleton<IServiceBusClientFactory, ServiceBusClientFactory>();
         services.AddSingleton<IConsoleOutput, ConsoleOutput>();
         services.AddSingleton<IQueueMonitorService, QueueMonitorService>();
-        services.AddSingleton<IAppInsightsService, AppInsightsService>();
 
         // Command handlers
         services.AddScoped<DumpDlqCommandHandler>();
+        services.AddScoped<DiagnoseDlqCommandHandler>();
 
         // Legacy services (for other commands not yet migrated)
         services.AddSingleton<IDlqCategoryAnalyzer, DlqCategoryAnalyzer>();

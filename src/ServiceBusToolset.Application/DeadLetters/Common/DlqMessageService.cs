@@ -2,16 +2,17 @@ using Azure.Messaging.ServiceBus;
 using ServiceBusToolset.Application.Common.ServiceBus.Abstractions;
 using ServiceBusToolset.Application.Common.ServiceBus.Helpers;
 using ServiceBusToolset.Application.Common.ServiceBus.Models;
-using ServiceBusToolset.Application.Common.ServiceBus.Serialization;
-using ServiceBusMessage = ServiceBusToolset.Application.Common.ServiceBus.Models.ServiceBusMessage;
 
 namespace ServiceBusToolset.Application.DeadLetters.Common;
 
+/// <summary>
+/// Provides DLQ-specific message operations.
+/// </summary>
 public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
 {
-    private const int MaxBatchSize = 100;
-    private const int EmptyBatchThreshold = 3;
-
+    /// <summary>
+    /// Gets the dead letter message count for the specified entity.
+    /// </summary>
     public async Task<long> GetMessageCountAsync(
         string fullyQualifiedNamespace,
         EntityTarget target,
@@ -29,6 +30,9 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
         return subProps.Value.DeadLetterMessageCount;
     }
 
+    /// <summary>
+    /// Counts DLQ messages that match a time filter.
+    /// </summary>
     public static async Task<FilteredMessageCount> CountMessagesWithFilterAsync(
         ServiceBusClient client,
         EntityTarget target,
@@ -36,39 +40,23 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
-        await using var receiver = CreateDlqReceiver(client, target);
-
-        var count = 0;
-        var filteredCount = 0;
-        var emptyBatches = 0;
-
-        while (!cancellationToken.IsCancellationRequested && emptyBatches < EmptyBatchThreshold)
-        {
-            var messages = await receiver.PeekMessagesAsync(MaxBatchSize, cancellationToken:cancellationToken);
-
-            if (messages.Count == 0)
-            {
-                emptyBatches++;
-                continue;
-            }
-
-            emptyBatches = 0;
-            count += messages.Count;
-            filteredCount += messages.Count(m => m.EnqueuedTime < beforeTime);
-
-            progress?.Report(count);
-        }
-
-        return new FilteredMessageCount(filteredCount, count);
+        await using var receiver = ReceiverFactory.CreateDlqReceiver(client, target);
+        return await MessageOperations.CountWithTimeFilterAsync(receiver,
+                                                                beforeTime,
+                                                                progress:progress,
+                                                                cancellationToken:cancellationToken);
     }
 
+    /// <summary>
+    /// Analyzes DLQ messages and groups them by category (subject + dead letter reason).
+    /// </summary>
     public static async Task<List<DlqCategory>> AnalyzeCategoriesAsync(
         ServiceBusClient client,
         EntityTarget target,
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
-        await using var receiver = CreateDlqReceiver(client, target);
+        await using var receiver = ReceiverFactory.CreateDlqReceiver(client, target);
 
         var categoryCounts = new Dictionary<DlqCategoryKey, int>();
         var totalPeeked = 0;
@@ -80,11 +68,14 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
 
             if (fromSequenceNumber.HasValue)
             {
-                messages = await receiver.PeekMessagesAsync(MaxBatchSize, fromSequenceNumber.Value, cancellationToken);
+                messages = await receiver.PeekMessagesAsync(MessageOperations.DefaultBatchSize,
+                                                            fromSequenceNumber.Value,
+                                                            cancellationToken);
             }
             else
             {
-                messages = await receiver.PeekMessagesAsync(MaxBatchSize, cancellationToken:cancellationToken);
+                messages = await receiver.PeekMessagesAsync(MessageOperations.DefaultBatchSize,
+                                                            cancellationToken:cancellationToken);
             }
 
             if (messages.Count == 0)
@@ -110,41 +101,24 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
                .ToList();
     }
 
+    /// <summary>
+    /// Peeks all messages from the DLQ.
+    /// </summary>
     public static async Task<List<ServiceBusReceivedMessage>> PeekAllMessagesAsync(
         ServiceBusClient client,
         EntityTarget target,
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
-        await using var receiver = CreateDlqReceiver(client, target);
-
-        var allMessages = new List<ServiceBusReceivedMessage>();
-        var emptyBatches = 0;
-
-        while (!cancellationToken.IsCancellationRequested && emptyBatches < EmptyBatchThreshold)
-        {
-            var messages = await receiver.PeekMessagesAsync(MaxBatchSize, cancellationToken:cancellationToken);
-
-            if (messages.Count == 0)
-            {
-                emptyBatches++;
-                continue;
-            }
-
-            emptyBatches = 0;
-            allMessages.AddRange(messages);
-
-            progress?.Report(allMessages.Count);
-        }
-
-        return allMessages;
+        await using var receiver = ReceiverFactory.CreateDlqReceiver(client, target);
+        return await MessageOperations.PeekAllAsync(receiver,
+                                                    progress:progress,
+                                                    cancellationToken:cancellationToken);
     }
 
-    public static IReadOnlyList<ServiceBusReceivedMessage> FilterByTime(
-        IEnumerable<ServiceBusReceivedMessage> messages,
-        DateTimeOffset? beforeTime)
-        => MessageFilters.FilterByEnqueueTime(messages, beforeTime);
-
+    /// <summary>
+    /// Filters messages by DLQ categories (subject + dead letter reason).
+    /// </summary>
     public static IReadOnlyList<ServiceBusReceivedMessage> FilterByCategories(
         IEnumerable<ServiceBusReceivedMessage> messages,
         IReadOnlySet<DlqCategoryKey> categories)
@@ -152,27 +126,5 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
         return messages
                .Where(m => categories.Contains(DlqCategoryKey.FromMessage(m.Subject, m.DeadLetterReason)))
                .ToList();
-    }
-
-    public static List<ServiceBusMessage> ConvertToDto(IEnumerable<ServiceBusReceivedMessage> messages)
-        => MessageSerializer.ToDtoList(messages);
-
-    public Task WriteJsonAsync(string filePath, List<ServiceBusMessage> messages, CancellationToken cancellationToken)
-        => MessageSerializer.WriteJsonAsync(filePath, messages, cancellationToken);
-
-    private static ServiceBusReceiver CreateDlqReceiver(ServiceBusClient client, EntityTarget target)
-    {
-        var options = new ServiceBusReceiverOptions
-        {
-            SubQueue = SubQueue.DeadLetter,
-            ReceiveMode = ServiceBusReceiveMode.PeekLock
-        };
-
-        if (target.IsQueueMode)
-        {
-            return client.CreateReceiver(target.Queue!, options);
-        }
-
-        return client.CreateReceiver(target.Topic!, target.Subscription!, options);
     }
 }

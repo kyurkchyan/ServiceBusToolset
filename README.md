@@ -72,7 +72,8 @@ sbtools monitor-queues -n mynamespace.servicebus.windows.net
 sbtools monitor-queues -n mynamespace.servicebus.windows.net -f "order-*" -r 10
 ```
 
-> **Note:** If running from source instead of the global tool, replace `sbtools` with `dotnet run --` in the commands above.
+> **Note:** If running from source instead of the global tool, replace `sbtools` with `dotnet run --` in the commands
+> above.
 
 ## Authentication
 

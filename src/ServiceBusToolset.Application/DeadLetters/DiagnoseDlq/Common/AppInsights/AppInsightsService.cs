@@ -2,8 +2,9 @@ using Azure.Core;
 using Azure.Identity;
 using Azure.Monitor.Query;
 using Azure.Monitor.Query.Models;
+using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Models;
 
-namespace ServiceBusToolset.CLI.DeadLetters.DianoseDlq.AppInsights;
+namespace ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Common.AppInsights;
 
 public class AppInsightsService : IAppInsightsService
 {
@@ -58,22 +59,19 @@ public class AppInsightsService : IAppInsightsService
             var operationIdList = string.Join("', '", batch);
 
             // Query exceptions for batch
-            await QueryExceptionsBatchAsync(batch,
-                                            operationIdList,
+            await QueryExceptionsBatchAsync(operationIdList,
                                             timeRange,
                                             results,
                                             cancellationToken);
 
             // Query traces for batch
-            await QueryTracesBatchAsync(batch,
-                                        operationIdList,
+            await QueryTracesBatchAsync(operationIdList,
                                         timeRange,
                                         results,
                                         cancellationToken);
 
             // Query dependencies for batch
-            await QueryDependenciesBatchAsync(batch,
-                                              operationIdList,
+            await QueryDependenciesBatchAsync(operationIdList,
                                               timeRange,
                                               results,
                                               cancellationToken);
@@ -82,19 +80,19 @@ public class AppInsightsService : IAppInsightsService
         return results;
     }
 
-    private async Task QueryExceptionsBatchAsync(
-        List<string> operationIds,
-        string operationIdList,
-        QueryTimeRange timeRange,
-        Dictionary<string, DiagnosticResult> results,
-        CancellationToken cancellationToken)
+    private async Task QueryExceptionsBatchAsync(string operationIdList,
+                                                 QueryTimeRange timeRange,
+                                                 Dictionary<string, DiagnosticResult> results,
+                                                 CancellationToken cancellationToken)
     {
-        var query = $@"
-exceptions
-| where operation_Id in ('{operationIdList}')
-| order by timestamp desc
-| project operation_Id, timestamp, problemId, type, outerMessage, innermostMessage, details
-";
+        var query = $"""
+
+                     exceptions
+                     | where operation_Id in ('{operationIdList}')
+                     | order by timestamp desc
+                     | project operation_Id, timestamp, problemId, type, outerMessage, innermostMessage, details
+
+                     """;
 
         try
         {
@@ -132,20 +130,20 @@ exceptions
         }
     }
 
-    private async Task QueryTracesBatchAsync(
-        List<string> operationIds,
-        string operationIdList,
-        QueryTimeRange timeRange,
-        Dictionary<string, DiagnosticResult> results,
-        CancellationToken cancellationToken)
+    private async Task QueryTracesBatchAsync(string operationIdList,
+                                             QueryTimeRange timeRange,
+                                             Dictionary<string, DiagnosticResult> results,
+                                             CancellationToken cancellationToken)
     {
-        var query = $@"
-traces
-| where operation_Id in ('{operationIdList}')
-| where severityLevel >= 2
-| order by timestamp desc
-| project operation_Id, timestamp, message, severityLevel
-";
+        var query = $"""
+
+                     traces
+                     | where operation_Id in ('{operationIdList}')
+                     | where severityLevel >= 2
+                     | order by timestamp desc
+                     | project operation_Id, timestamp, message, severityLevel
+
+                     """;
 
         try
         {
@@ -180,20 +178,20 @@ traces
         }
     }
 
-    private async Task QueryDependenciesBatchAsync(
-        List<string> operationIds,
-        string operationIdList,
-        QueryTimeRange timeRange,
-        Dictionary<string, DiagnosticResult> results,
-        CancellationToken cancellationToken)
+    private async Task QueryDependenciesBatchAsync(string operationIdList,
+                                                   QueryTimeRange timeRange,
+                                                   Dictionary<string, DiagnosticResult> results,
+                                                   CancellationToken cancellationToken)
     {
-        var query = $@"
-dependencies
-| where operation_Id in ('{operationIdList}')
-| where success == false
-| order by timestamp desc
-| project operation_Id, timestamp, type, target, name, data, resultCode, success, duration
-";
+        var query = $"""
+
+                     dependencies
+                     | where operation_Id in ('{operationIdList}')
+                     | where success == false
+                     | order by timestamp desc
+                     | project operation_Id, timestamp, type, target, name, data, resultCode, success, duration
+
+                     """;
 
         try
         {

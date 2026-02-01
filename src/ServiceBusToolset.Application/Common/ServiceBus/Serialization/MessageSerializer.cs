@@ -38,9 +38,8 @@ public static class MessageSerializer
             ReplyTo = message.ReplyTo,
             ReplyToSessionId = message.ReplyToSessionId,
             TimeToLive = message.TimeToLive,
-            ApplicationProperties = message.ApplicationProperties.ToDictionary(
-                kvp => kvp.Key,
-                kvp => (object?)kvp.Value)
+            ApplicationProperties = message.ApplicationProperties.ToDictionary(kvp => kvp.Key,
+                                                                               object? (kvp) => kvp.Value)
         };
     }
 

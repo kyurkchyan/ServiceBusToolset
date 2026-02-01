@@ -15,7 +15,10 @@ public class DlqCategoryAnalyzer : IDlqCategoryAnalyzer
         IConsoleOutput output,
         CancellationToken cancellationToken)
     {
-        await using var receiver = CreateDlqReceiver(client, queue, topic, subscription);
+        await using var receiver = CreateDlqReceiver(client,
+                                                     queue,
+                                                     topic,
+                                                     subscription);
 
         var categoryCounts = new Dictionary<(string Label, string Reason), int>();
         var totalPeeked = 0;
@@ -31,7 +34,7 @@ public class DlqCategoryAnalyzer : IDlqCategoryAnalyzer
             }
             else
             {
-                messages = await receiver.PeekMessagesAsync(MaxBatchSize, cancellationToken: cancellationToken);
+                messages = await receiver.PeekMessagesAsync(MaxBatchSize, cancellationToken:cancellationToken);
             }
 
             if (messages.Count == 0)
@@ -58,9 +61,9 @@ public class DlqCategoryAnalyzer : IDlqCategoryAnalyzer
         Console.WriteLine();
 
         return categoryCounts
-            .OrderByDescending(kvp => kvp.Value)
-            .Select(kvp => new DlqCategory(kvp.Key.Label, kvp.Key.Reason, kvp.Value))
-            .ToList();
+               .OrderByDescending(kvp => kvp.Value)
+               .Select(kvp => new DlqCategory(kvp.Key.Label, kvp.Key.Reason, kvp.Value))
+               .ToList();
     }
 
     private static ServiceBusReceiver CreateDlqReceiver(

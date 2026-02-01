@@ -8,10 +8,9 @@ using ServiceBusToolset.CLI.DeadLetters.ResubmitDlqMessages;
 
 namespace ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
 
-public class ResubmitDlqCommand(
-    IServiceBusClientFactory clientFactory,
-    IConsoleOutput output,
-    IDlqCategoryAnalyzer categoryAnalyzer) : BaseCommand<ResubmitDlqCliCommand>(clientFactory, output), ICommand<ResubmitDlqCliCommand>
+public class ResubmitDlqCommand(IServiceBusClientFactory clientFactory,
+                                IConsoleOutput output,
+                                IDlqCategoryAnalyzer categoryAnalyzer) : BaseCommand<ResubmitDlqCliCommand>(clientFactory, output), ICommand<ResubmitDlqCliCommand>
 {
     private const int MaxBatchSize = 100;
     private static readonly TimeSpan MaxWaitTime = TimeSpan.FromSeconds(5);
@@ -34,15 +33,24 @@ public class ResubmitDlqCommand(
 
             if (cliCommand.DryRun)
             {
-                return await ExecuteDryRunAsync(client, cliCommand, entityDescription, cancellationToken);
+                return await ExecuteDryRunAsync(client,
+                                                cliCommand,
+                                                entityDescription,
+                                                cancellationToken);
             }
 
             if (cliCommand.Interactive)
             {
-                return await ExecuteInteractiveResubmitAsync(client, cliCommand, entityDescription, cancellationToken);
+                return await ExecuteInteractiveResubmitAsync(client,
+                                                             cliCommand,
+                                                             entityDescription,
+                                                             cancellationToken);
             }
 
-            return await ExecuteResubmitAsync(client, cliCommand, entityDescription, cancellationToken);
+            return await ExecuteResubmitAsync(client,
+                                              cliCommand,
+                                              entityDescription,
+                                              cancellationToken);
         }
         catch (AuthenticationFailedException ex)
         {
@@ -121,7 +129,7 @@ public class ResubmitDlqCommand(
 
         while (!cancellationToken.IsCancellationRequested && emptyBatches < EmptyBatchThreshold)
         {
-            var messages = await receiver.PeekMessagesAsync(MaxBatchSize, cancellationToken: cancellationToken);
+            var messages = await receiver.PeekMessagesAsync(MaxBatchSize, cancellationToken:cancellationToken);
 
             if (messages.Count == 0)
             {
@@ -152,10 +160,16 @@ public class ResubmitDlqCommand(
 
         if (cliCommand.BeforeEnqueueTime.HasValue)
         {
-            return await ExecuteFilteredResubmitAsync(client, cliCommand, entityDescription, cancellationToken);
+            return await ExecuteFilteredResubmitAsync(client,
+                                                      cliCommand,
+                                                      entityDescription,
+                                                      cancellationToken);
         }
 
-        return await ExecuteFullResubmitAsync(client, cliCommand, entityDescription, cancellationToken);
+        return await ExecuteFullResubmitAsync(client,
+                                              cliCommand,
+                                              entityDescription,
+                                              cancellationToken);
     }
 
     private async Task<int> ExecuteFullResubmitAsync(
@@ -263,7 +277,7 @@ public class ResubmitDlqCommand(
 
             if (toAbandon.Count > 0)
             {
-                var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken: cancellationToken));
+                var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken:cancellationToken));
                 await Task.WhenAll(abandonTasks);
                 totalSkipped += toAbandon.Count;
             }
@@ -284,13 +298,12 @@ public class ResubmitDlqCommand(
     {
         Output.Info($"Analyzing DLQ for {entityDescription}...");
 
-        var categories = await categoryAnalyzer.AnalyzeCategoriesAsync(
-            client,
-            cliCommand.Queue,
-            cliCommand.Topic,
-            cliCommand.Subscription,
-            Output,
-            cancellationToken);
+        var categories = await categoryAnalyzer.AnalyzeCategoriesAsync(client,
+                                                                       cliCommand.Queue,
+                                                                       cliCommand.Topic,
+                                                                       cliCommand.Subscription,
+                                                                       Output,
+                                                                       cancellationToken);
 
         if (categories.Count == 0)
         {
@@ -328,7 +341,10 @@ public class ResubmitDlqCommand(
         var targetInfo = GetTargetInfo(cliCommand);
         Output.Info($"Resubmitting {totalToResubmit} messages from {selectedIndices.Count} categories{targetInfo}...");
 
-        var totalResubmitted = await ResubmitByCategoriesAsync(client, cliCommand, selectedCategories, cancellationToken);
+        var totalResubmitted = await ResubmitByCategoriesAsync(client,
+                                                               cliCommand,
+                                                               selectedCategories,
+                                                               cancellationToken);
 
         Console.WriteLine();
         Output.Success($"Resubmitted {totalResubmitted} messages from DLQ for {entityDescription}{targetInfo}.");
@@ -340,7 +356,13 @@ public class ResubmitDlqCommand(
         Output.Info("");
         Output.Info("Dead Letter Summary:");
 
-        var headers = new[] { "#", "Label", "DeadLetterReason", "Count" };
+        var headers = new[]
+        {
+            "#",
+            "Label",
+            "DeadLetterReason",
+            "Count"
+        };
         var rows = categories.Select((cat, index) => new[]
         {
             (index + 1).ToString(),
@@ -468,7 +490,7 @@ public class ResubmitDlqCommand(
 
             if (toAbandon.Count > 0)
             {
-                var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken: cancellationToken));
+                var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken:cancellationToken));
                 await Task.WhenAll(abandonTasks);
                 totalSkipped += toAbandon.Count;
             }
@@ -493,7 +515,7 @@ public class ResubmitDlqCommand(
             SessionId = original.SessionId,
             PartitionKey = original.PartitionKey,
             TransactionPartitionKey = original.TransactionPartitionKey,
-            TimeToLive = original.TimeToLive,
+            TimeToLive = original.TimeToLive
         };
 
         foreach (var prop in original.ApplicationProperties)

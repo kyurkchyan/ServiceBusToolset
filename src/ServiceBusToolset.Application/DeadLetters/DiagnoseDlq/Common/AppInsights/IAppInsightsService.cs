@@ -1,4 +1,6 @@
-namespace ServiceBusToolset.CLI.DeadLetters.DianoseDlq.AppInsights;
+using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Models;
+
+namespace ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Common.AppInsights;
 
 public interface IAppInsightsService
 {

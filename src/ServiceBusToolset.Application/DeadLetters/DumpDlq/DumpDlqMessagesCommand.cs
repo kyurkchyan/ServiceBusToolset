@@ -5,10 +5,9 @@ using ServiceBusToolset.Application.DeadLetters.Common;
 
 namespace ServiceBusToolset.Application.DeadLetters.DumpDlq;
 
-public sealed record DumpDlqMessagesCommand(
-    string FullyQualifiedNamespace,
-    EntityTarget Target,
-    string OutputFilePath,
-    DateTimeOffset? BeforeTime = null,
-    IReadOnlySet<DlqCategoryKey>? CategoryFilter = null,
-    IProgress<int>? Progress = null) : ICommand<Result<DlqDumpResult>>;
+public sealed record DumpDlqMessagesCommand(string FullyQualifiedNamespace,
+                                            EntityTarget Target,
+                                            string OutputFilePath,
+                                            DateTimeOffset? BeforeTime = null,
+                                            IReadOnlySet<DlqCategoryKey>? CategoryFilter = null,
+                                            IProgress<int>? Progress = null) : ICommand<Result<DlqDumpResult>>;
