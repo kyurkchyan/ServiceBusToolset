@@ -29,13 +29,13 @@ jobs:
           echo "Releasing version: $VERSION"
 
       - name: Restore dependencies
-        run: dotnet restore ServiceBusToolset
+        run: dotnet restore
 
       - name: Build
-        run: dotnet build ServiceBusToolset -c Release --no-restore
+        run: dotnet build -c Release --no-restore
 
       - name: Pack
-        run: dotnet pack ServiceBusToolset -c Release --no-build -o ./artifacts -p:Version=${{ steps.version.outputs.version }}
+        run: dotnet pack src/ServiceBusToolset.CLI -c Release --no-build -o ./artifacts -p:Version=${{ steps.version.outputs.version }}
 
       - name: Push to NuGet
         env:
