@@ -1,0 +1,54 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- .NET Tool Configuration -->
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>sbtools</ToolCommandName>
+
+        <!-- NuGet Package Metadata -->
+        <PackageId>ServiceBusToolset</PackageId>
+        <Authors>Gagik Kyurkchyan</Authors>
+        <Description>Command-line tool for Azure Service Bus operations: purge DLQ, resubmit messages, diagnose issues, and monitor queues.</Description>
+        <PackageTags>azure;service-bus;cli;dotnet-tool;dead-letter-queue</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/kyurkchyan/ServiceBusToolset</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/kyurkchyan/ServiceBusToolset.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!-- Version - Overridden by CI/CD -->
+        <Version>1.0.0</Version>
+
+        <!-- Source Link -->
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.18.2"/>
+        <PackageReference Include="Azure.Identity" Version="1.13.2"/>
+        <PackageReference Include="Azure.Monitor.Query" Version="1.5.0"/>
+        <PackageReference Include="CommandLineParser" Version="2.9.1"/>
+        <PackageReference Include="Spectre.Console" Version="0.54.0"/>
+        <PackageReference Include="System.Reactive" Version="6.0.1"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0"/>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\ServiceBusToolset.Application\ServiceBusToolset.Application.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+
+</Project>
