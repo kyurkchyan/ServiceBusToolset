@@ -7,6 +7,7 @@ using ServiceBusToolset.CLI.DeadLetters.DumpDlq;
 using ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
 using ServiceBusToolset.CLI.DeadLetters.ResubmitDlq;
 using ServiceBusToolset.CLI.Queues.MonitorQueues;
+using ServiceBusToolset.CLI.Subscriptions.MonitorSubscriptions;
 using IServiceBusClientFactory = ServiceBusToolset.Application.Common.ServiceBus.Abstractions.IServiceBusClientFactory;
 
 namespace ServiceBusToolset.CLI;
@@ -27,7 +28,8 @@ public static class CliDependencyInjectionExtensions
            .AddCommandHandler<PurgeDlqCliCommand, PurgeDlqCommandHandler>()
            .AddCommandHandler<ResubmitDlqCliCommand, ResubmitDlqCommandHandler>()
            .AddCommandHandler<DiagnoseDlqCliCommand, DiagnoseDlqCommandHandler>()
-           .AddCommandHandler<MonitorQueuesCliCommand, MonitorQueuesCommandHandler>();
+           .AddCommandHandler<MonitorQueuesCliCommand, MonitorQueuesCommandHandler>()
+           .AddCommandHandler<MonitorSubscriptionsCliCommand, MonitorSubscriptionsCommandHandler>();
 
     private static IServiceCollection AddCommandHandler<TCommand, THandler>(this IServiceCollection services)
         where THandler : class, ICommandHandler<TCommand>

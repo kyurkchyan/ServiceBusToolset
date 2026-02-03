@@ -7,6 +7,7 @@ using ServiceBusToolset.CLI.DeadLetters.DumpDlq;
 using ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
 using ServiceBusToolset.CLI.DeadLetters.ResubmitDlq;
 using ServiceBusToolset.CLI.Queues.MonitorQueues;
+using ServiceBusToolset.CLI.Subscriptions.MonitorSubscriptions;
 
 namespace ServiceBusToolset.CLI;
 
@@ -23,7 +24,8 @@ public sealed class CommandExecutionService(CommandLineArguments cliArguments,
                 PurgeDlqCliCommand,
                 ResubmitDlqCliCommand,
                 DiagnoseDlqCliCommand,
-                MonitorQueuesCliCommand>(cliArguments.Args);
+                MonitorQueuesCliCommand,
+                MonitorSubscriptionsCliCommand>(cliArguments.Args);
 
             await result
                   .WithCommandAsync<DumpDlqCliCommand>(cmd => HandleCommandAsync(cmd, stoppingToken))
@@ -31,6 +33,7 @@ public sealed class CommandExecutionService(CommandLineArguments cliArguments,
                   .WithCommandAsync<ResubmitDlqCliCommand>(cmd => HandleCommandAsync(cmd, stoppingToken))
                   .WithCommandAsync<DiagnoseDlqCliCommand>(cmd => HandleCommandAsync(cmd, stoppingToken))
                   .WithCommandAsync<MonitorQueuesCliCommand>(cmd => HandleCommandAsync(cmd, stoppingToken))
+                  .WithCommandAsync<MonitorSubscriptionsCliCommand>(cmd => HandleCommandAsync(cmd, stoppingToken))
                   .WithNotParsedAsync(HandleParseErrors);
         }
         catch (Exception)

@@ -32,13 +32,14 @@ dotnet build
 
 ## Commands
 
-| Command                                  | Description                                                       |
-|------------------------------------------|-------------------------------------------------------------------|
-| [purge-dlq](docs/purge-dlq.md)           | Purge messages from a dead letter queue                           |
-| [resubmit-dlq](docs/resubmit-dlq.md)     | Resubmit messages from a dead letter queue back to the main queue |
-| [dump-dlq](docs/dump-dlq.md)             | Export DLQ messages to a JSON file                                |
-| [diagnose-dlq](docs/diagnose-dlq.md)     | Diagnose DLQ messages using Application Insights telemetry        |
-| [monitor-queues](docs/monitor-queues.md) | Monitor queue statistics in a live-updating console table         |
+| Command                                                  | Description                                                       |
+|----------------------------------------------------------|-------------------------------------------------------------------|
+| [purge-dlq](docs/purge-dlq.md)                           | Purge messages from a dead letter queue                           |
+| [resubmit-dlq](docs/resubmit-dlq.md)                     | Resubmit messages from a dead letter queue back to the main queue |
+| [dump-dlq](docs/dump-dlq.md)                             | Export DLQ messages to a JSON file                                |
+| [diagnose-dlq](docs/diagnose-dlq.md)                     | Diagnose DLQ messages using Application Insights telemetry        |
+| [monitor-queues](docs/monitor-queues.md)                 | Monitor queue statistics in a live-updating console table         |
+| [monitor-subscriptions](docs/monitor-subscriptions.md)   | Monitor topic subscription statistics in a live-updating table    |
 
 ## Quick Start
 
@@ -70,6 +71,12 @@ sbtools monitor-queues -n mynamespace.servicebus.windows.net
 
 # Monitor queues matching a pattern with 10-second refresh
 sbtools monitor-queues -n mynamespace.servicebus.windows.net -f "order-*" -r 10
+
+# Monitor all topic subscriptions
+sbtools monitor-subscriptions -n mynamespace.servicebus.windows.net
+
+# Monitor subscriptions for specific topics with subscription filter
+sbtools monitor-subscriptions -n mynamespace.servicebus.windows.net -t "orders*" -s "*-processor"
 ```
 
 > **Note:** If running from source instead of the global tool, replace `sbtools` with `dotnet run --` in the commands

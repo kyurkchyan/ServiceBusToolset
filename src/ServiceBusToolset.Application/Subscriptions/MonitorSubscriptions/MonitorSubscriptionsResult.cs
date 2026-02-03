@@ -1,0 +1,5 @@
+using ServiceBusToolset.Application.Subscriptions.MonitorSubscriptions.Models;
+
+namespace ServiceBusToolset.Application.Subscriptions.MonitorSubscriptions;
+
+public sealed record MonitorSubscriptionsResult(IObservable<IReadOnlyList<SubscriptionStatistics>> SubscriptionStatistics);
