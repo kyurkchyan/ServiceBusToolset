@@ -1,6 +1,9 @@
+using Azure;
 using Azure.Messaging.ServiceBus;
+using NSubstitute;
 using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.Tests.Common.Builders;
+using ServiceBusToolset.Application.Tests.Common.Mocks;
 using Shouldly;
 using Xunit;
 
@@ -8,6 +11,243 @@ namespace ServiceBusToolset.Application.Tests.DeadLetters.Common;
 
 public class DlqMessageServiceShould
 {
+    [Fact]
+    public async Task GetMessageCount_WhenQueueTarget()
+    {
+        // Arrange
+        var mockFactory = MockServiceBusClientFactory.Create();
+        var runtimeProperties = ServiceBusModelFactory.QueueRuntimeProperties("test-queue",
+                                                                              deadLetterMessageCount:42);
+
+        mockFactory.AdminClient.GetQueueRuntimePropertiesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                   .Returns(Response.FromValue(runtimeProperties, Substitute.For<Response>()));
+
+        var service = new DlqMessageService(mockFactory.Object);
+
+        // Act
+        var count = await service.GetMessageCountAsync("test.servicebus.windows.net",
+                                                       EntityTargetBuilder.Queue(),
+                                                       CancellationToken.None);
+
+        // Assert
+        count.ShouldBe(42);
+    }
+
+    [Fact]
+    public async Task GetMessageCount_WhenSubscriptionTarget()
+    {
+        // Arrange
+        var mockFactory = MockServiceBusClientFactory.Create();
+        var runtimeProperties = ServiceBusModelFactory.SubscriptionRuntimeProperties("test-topic",
+                                                                                     "test-subscription",
+                                                                                     deadLetterMessageCount:15);
+
+        mockFactory.AdminClient.GetSubscriptionRuntimePropertiesAsync(Arg.Any<string>(),
+                                                                      Arg.Any<string>(),
+                                                                      Arg.Any<CancellationToken>())
+                   .Returns(Response.FromValue(runtimeProperties, Substitute.For<Response>()));
+
+        var service = new DlqMessageService(mockFactory.Object);
+
+        // Act
+        var count = await service.GetMessageCountAsync("test.servicebus.windows.net",
+                                                       EntityTargetBuilder.Subscription(),
+                                                       CancellationToken.None);
+
+        // Assert
+        count.ShouldBe(15);
+    }
+
+    [Fact]
+    public async Task CountMessagesWithFilter_WhenMessagesMatchFilter()
+    {
+        // Arrange
+        var mockFactory = MockServiceBusClientFactory.Create();
+        var cutoffTime = DateTimeOffset.UtcNow;
+
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithEnqueuedTime(cutoffTime.AddHours(-2))
+                                            .WithSequenceNumber(1)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithEnqueuedTime(cutoffTime.AddHours(-1))
+                                            .WithSequenceNumber(2)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithEnqueuedTime(cutoffTime.AddHours(1))
+                                            .WithSequenceNumber(3)
+                                            .Build()
+        };
+
+        mockFactory.WithMessagesToReturn(messages);
+
+        // Act
+        var result = await DlqMessageService.CountMessagesWithFilterAsync(mockFactory.Client,
+                                                                          EntityTargetBuilder.Queue(),
+                                                                          cutoffTime,
+                                                                          null,
+                                                                          CancellationToken.None);
+
+        // Assert
+        result.TotalCount.ShouldBe(3);
+        result.FilteredCount.ShouldBe(2); // Two messages before cutoff
+    }
+
+    [Fact]
+    public async Task AnalyzeCategories_WhenMessagesHaveVariousCategories()
+    {
+        // Arrange
+        var mockFactory = MockServiceBusClientFactory.Create();
+
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithSubject("OrderProcessor")
+                                            .WithDeadLetterReason("MaxDeliveryCountExceeded")
+                                            .WithSequenceNumber(1)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithSubject("OrderProcessor")
+                                            .WithDeadLetterReason("MaxDeliveryCountExceeded")
+                                            .WithSequenceNumber(2)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithSubject("PaymentHandler")
+                                            .WithDeadLetterReason("TimeoutExceeded")
+                                            .WithSequenceNumber(3)
+                                            .Build()
+        };
+
+        mockFactory.WithMessagesToReturn(messages);
+
+        // Act
+        var categories = await DlqMessageService.AnalyzeCategoriesAsync(mockFactory.Client,
+                                                                        EntityTargetBuilder.Queue(),
+                                                                        null,
+                                                                        CancellationToken.None);
+
+        // Assert
+        categories.Count.ShouldBe(2);
+        categories[0].Label.ShouldBe("OrderProcessor");
+        categories[0].DeadLetterReason.ShouldBe("MaxDeliveryCountExceeded");
+        categories[0].Count.ShouldBe(2);
+        categories[1].Label.ShouldBe("PaymentHandler");
+        categories[1].DeadLetterReason.ShouldBe("TimeoutExceeded");
+        categories[1].Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task AnalyzeCategories_SortByCountDescending()
+    {
+        // Arrange
+        var mockFactory = MockServiceBusClientFactory.Create();
+
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithSubject("LowCount")
+                                            .WithDeadLetterReason("Reason")
+                                            .WithSequenceNumber(1)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithSubject("HighCount")
+                                            .WithDeadLetterReason("Reason")
+                                            .WithSequenceNumber(2)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithSubject("HighCount")
+                                            .WithDeadLetterReason("Reason")
+                                            .WithSequenceNumber(3)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithSubject("HighCount")
+                                            .WithDeadLetterReason("Reason")
+                                            .WithSequenceNumber(4)
+                                            .Build()
+        };
+
+        mockFactory.WithMessagesToReturn(messages);
+
+        // Act
+        var categories = await DlqMessageService.AnalyzeCategoriesAsync(mockFactory.Client,
+                                                                        EntityTargetBuilder.Queue(),
+                                                                        null,
+                                                                        CancellationToken.None);
+
+        // Assert
+        categories.Count.ShouldBe(2);
+        categories[0].Label.ShouldBe("HighCount"); // Higher count first
+        categories[0].Count.ShouldBe(3);
+        categories[1].Label.ShouldBe("LowCount");
+        categories[1].Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task AnalyzeCategories_WhenQueueIsEmpty()
+    {
+        // Arrange
+        var mockFactory = MockServiceBusClientFactory.Create().WithNoMessages();
+
+        // Act
+        var categories = await DlqMessageService.AnalyzeCategoriesAsync(mockFactory.Client,
+                                                                        EntityTargetBuilder.Queue(),
+                                                                        null,
+                                                                        CancellationToken.None);
+
+        // Assert
+        categories.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task PeekAllMessages_WhenQueueHasMessages()
+    {
+        // Arrange
+        var mockFactory = MockServiceBusClientFactory.Create();
+
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-1")
+                                            .WithSequenceNumber(1)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-2")
+                                            .WithSequenceNumber(2)
+                                            .Build()
+        };
+
+        mockFactory.WithMessagesToReturn(messages);
+
+        // Act
+        var result = await DlqMessageService.PeekAllMessagesAsync(mockFactory.Client,
+                                                                  EntityTargetBuilder.Queue(),
+                                                                  null,
+                                                                  CancellationToken.None);
+
+        // Assert
+        result.Count.ShouldBe(2);
+        result[0].MessageId.ShouldBe("msg-1");
+        result[1].MessageId.ShouldBe("msg-2");
+    }
+
+    [Fact]
+    public async Task PeekAllMessages_WhenQueueIsEmpty()
+    {
+        // Arrange
+        var mockFactory = MockServiceBusClientFactory.Create().WithNoMessages();
+
+        // Act
+        var result = await DlqMessageService.PeekAllMessagesAsync(mockFactory.Client,
+                                                                  EntityTargetBuilder.Queue(),
+                                                                  null,
+                                                                  CancellationToken.None);
+
+        // Assert
+        result.ShouldBeEmpty();
+    }
+
     [Fact]
     public void ReturnFilteredMessages_WhenCategoriesMatch()
     {

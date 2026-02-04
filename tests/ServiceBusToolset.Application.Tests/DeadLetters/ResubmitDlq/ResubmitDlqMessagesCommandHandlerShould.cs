@@ -316,7 +316,6 @@ public class ResubmitDlqMessagesCommandHandlerShould
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        await Task.Delay(50);
         progressReports.ShouldNotBeEmpty();
     }
 

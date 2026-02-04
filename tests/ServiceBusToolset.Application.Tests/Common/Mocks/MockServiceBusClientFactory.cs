@@ -12,7 +12,7 @@ public class MockServiceBusClientFactory
 {
     private IServiceBusClientFactory Factory { get; }
     public ServiceBusClient Client { get; }
-    private ServiceBusAdministrationClient AdminClient { get; }
+    public ServiceBusAdministrationClient AdminClient { get; }
     public ServiceBusReceiver Receiver { get; }
     public ServiceBusSender Sender { get; }
 

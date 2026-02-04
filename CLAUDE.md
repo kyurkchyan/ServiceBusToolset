@@ -86,3 +86,10 @@ Cross-cutting concerns go in `Common/` folders at the appropriate level:
 - `CommandLineParser` - CLI argument parsing
 - `Spectre.Console` - Rich console output
 - `Azure.Identity` - DefaultAzureCredential
+
+## Code Style
+
+- **Never use `#region`/`#endregion`** - Use class organization and whitespace instead
+- **Test naming**: `[ClassName]Should` for test classes, `[Action]_When[Condition]` for test methods
+- **Assertions**: Use Shouldly library
+- **Mocking**: Use NSubstitute
