@@ -47,7 +47,7 @@ public class DumpDlqMessagesCommandHandlerShould
                                                  _testOutputPath);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
@@ -83,7 +83,7 @@ public class DumpDlqMessagesCommandHandlerShould
                                                  cutoffTime);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
@@ -120,7 +120,7 @@ public class DumpDlqMessagesCommandHandlerShould
                                                  CategoryFilter:categoryFilter);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
@@ -169,7 +169,7 @@ public class DumpDlqMessagesCommandHandlerShould
                                                  categoryFilter);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
@@ -187,7 +187,7 @@ public class DumpDlqMessagesCommandHandlerShould
                                                  _testOutputPath);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
@@ -215,7 +215,7 @@ public class DumpDlqMessagesCommandHandlerShould
                                                  DateTimeOffset.UtcNow);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
@@ -242,13 +242,13 @@ public class DumpDlqMessagesCommandHandlerShould
                                                  _testOutputPath);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
         File.Exists(_testOutputPath).ShouldBeTrue();
 
-        var fileContent = await File.ReadAllTextAsync(_testOutputPath);
+        var fileContent = await File.ReadAllTextAsync(_testOutputPath, TestContext.Current.CancellationToken);
         fileContent.ShouldContain("msg-1");
     }
 
@@ -263,7 +263,7 @@ public class DumpDlqMessagesCommandHandlerShould
                                                  _testOutputPath);
 
         // Act
-        await _handler.Handle(command, CancellationToken.None);
+        await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         await _mockFactory.Client.Received(1).DisposeAsync();
@@ -283,7 +283,7 @@ public class DumpDlqMessagesCommandHandlerShould
                                                  _testOutputPath);
 
         // Act
-        await _handler.Handle(command, CancellationToken.None);
+        await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         _mockFactory.Client.Received(1).CreateReceiver(Arg.Is<string>(s => s == "test-topic"),
