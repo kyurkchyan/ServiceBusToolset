@@ -1,0 +1,21 @@
+<Solution>
+    <Configurations>
+        <Platform Name="Any CPU"/>
+        <Platform Name="x64"/>
+        <Platform Name="x86"/>
+    </Configurations>
+    <Folder Name="/Solution Items/">
+        <File Path=".gitignore"/>
+        <File Path="global.json"/>
+        <File Path="README.md"/>
+        <File Path="ServiceBusToolset.sln.DotSettings"/>
+    </Folder>
+    <Folder Name="/src/">
+        <Project Path="src/ServiceBusToolset.Application/ServiceBusToolset.Application.csproj"/>
+        <Project Path="src/ServiceBusToolset.CLI/ServiceBusToolset.CLI.csproj"/>
+    </Folder>
+    <Folder Name="/tests/">
+        <Project Path="tests/ServiceBusToolset.Application.Tests/ServiceBusToolset.Application.Tests.csproj"/>
+        <Project Path="tests/ServiceBusToolset.Integration.Tests/ServiceBusToolset.Integration.Tests.csproj"/>
+    </Folder>
+</Solution>
