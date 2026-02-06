@@ -6,8 +6,6 @@ namespace ServiceBusToolset.Integration.Tests.Infrastructure;
 
 public sealed class ServiceBusEmulatorFixture : IAsyncLifetime
 {
-    private const int ManagementPort = 5300;
-
     private readonly ServiceBusContainer _container = new ServiceBusBuilder("mcr.microsoft.com/azure-messaging/servicebus-emulator:2.0.0")
                                                       .WithAcceptLicenseAgreement(true)
                                                       .Build();
@@ -16,6 +14,8 @@ public sealed class ServiceBusEmulatorFixture : IAsyncLifetime
     /// AMQP connection string for <see cref="ServiceBusClient"/>.
     /// </summary>
     public string ConnectionString => _container.GetConnectionString();
+
+    private const int ManagementPort = 5300;
 
     /// <summary>
     /// HTTP connection string for <see cref="Azure.Messaging.ServiceBus.Administration.ServiceBusAdministrationClient"/>,

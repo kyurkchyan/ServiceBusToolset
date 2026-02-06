@@ -28,17 +28,19 @@ public class CountDlqIntegrationShould(ServiceBusEmulatorFixture fixture)
         await WaitForDlqCountAsync(target, 5, TestContext.Current.CancellationToken);
         var sender = CreateSender();
 
-        // Act
+        // Act — use a far-future BeforeTime so the AMQP peeking path counts all messages.
+        // The emulator's admin API does not track runtime properties (DeadLetterMessageCount),
+        // so the "no filter" fast path (which relies on GetQueueRuntimePropertiesAsync) cannot be tested here.
+        var beforeTime = DateTimeOffset.UtcNow.AddHours(1);
         var result = await sender.Send(new CountDlqMessagesCommand("ignored-by-emulator",
                                                                    target,
-                                                                   null),
+                                                                   beforeTime),
                                        TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
         result.Value.TotalCount.ShouldBe(5);
-        result.Value.FilteredCount.ShouldBeNull();
-        result.Value.BeforeTime.ShouldBeNull();
+        result.Value.FilteredCount.ShouldBe(5);
     }
 
     [Fact]
@@ -92,15 +94,17 @@ public class CountDlqIntegrationShould(ServiceBusEmulatorFixture fixture)
         await WaitForDlqCountAsync(target, 3, TestContext.Current.CancellationToken);
         var sender = CreateSender();
 
-        // Act
+        // Act — use a far-future BeforeTime to exercise the AMQP peeking path
+        // (emulator admin API does not track runtime properties)
+        var beforeTime = DateTimeOffset.UtcNow.AddHours(1);
         var result = await sender.Send(new CountDlqMessagesCommand("ignored-by-emulator",
                                                                    target,
-                                                                   null),
+                                                                   beforeTime),
                                        TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
         result.Value.TotalCount.ShouldBe(3);
-        result.Value.FilteredCount.ShouldBeNull();
+        result.Value.FilteredCount.ShouldBe(3);
     }
 }

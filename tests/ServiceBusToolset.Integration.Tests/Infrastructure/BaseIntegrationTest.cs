@@ -119,29 +119,31 @@ public abstract class BaseIntegrationTest : IAsyncDisposable
 
     protected async Task WaitForDlqCountAsync(EntityTarget target, int expectedCount, CancellationToken cancellationToken = default)
     {
-        var adminClient = new ServiceBusAdministrationClient(AdministrationConnectionString);
+        // The emulator's admin API doesn't report accurate runtime properties (DeadLetterMessageCount),
+        // so we peek DLQ messages via AMQP to verify the count.
+        var client = _fixture.Client;
 
         for (var attempt = 0; attempt < 20; attempt++)
         {
-            long count;
-            if (target.IsQueueMode)
-            {
-                var props = await adminClient.GetQueueRuntimePropertiesAsync(target.Queue!, cancellationToken);
-                count = props.Value.DeadLetterMessageCount;
-            }
-            else
-            {
-                var props = await adminClient.GetSubscriptionRuntimePropertiesAsync(target.Topic!, target.Subscription!, cancellationToken);
-                count = props.Value.DeadLetterMessageCount;
-            }
+            var entityPath = target.IsQueueMode ? target.Queue! : target.Topic!;
+            var receiver = target.IsQueueMode
+                               ? client.CreateReceiver(target.Queue!, new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter })
+                               : client.CreateReceiver(target.Topic!, target.Subscription!, new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter });
 
-            if (count >= expectedCount)
+            await using (receiver.ConfigureAwait(false))
             {
-                return;
+                var messages = await receiver.PeekMessagesAsync(expectedCount, cancellationToken:cancellationToken);
+                if (messages.Count >= expectedCount)
+                {
+                    return;
+                }
             }
 
             await Task.Delay(500, cancellationToken);
         }
+
+        throw new TimeoutException($"Expected {expectedCount} DLQ messages for {(target.IsQueueMode ? target.Queue : $"{target.Topic}/{target.Subscription}")}, " +
+                                   "but the count was not reached within the timeout period.");
     }
 
     protected string TempFilePath(string extension = ".json")

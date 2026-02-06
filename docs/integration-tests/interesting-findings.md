@@ -51,30 +51,46 @@ Calls to `CreateQueueAsync()` via `ServiceBusAdministrationClient` returned `Res
 **Solution:** Pin to `servicebus-emulator:2.0.0` (released Jan 2026), which added admin client support. Never use
 `:latest` for the emulator image — always pin to a specific version.
 
-## Runtime Properties Eventual Consistency
+## Runtime Properties Not Tracked by Emulator
 
-**Problem:** After dead-lettering messages, querying `DeadLetterMessageCount` via `GetQueueRuntimePropertiesAsync` /
-`GetSubscriptionRuntimePropertiesAsync` may return stale (zero) counts. The management plane's view lags behind the
-messaging plane.
+**Problem:** `GetQueueRuntimePropertiesAsync` / `GetSubscriptionRuntimePropertiesAsync` return **all zeros** for every
+message count property (`ActiveMessageCount`, `DeadLetterMessageCount`, `TotalMessageCount`, `ScheduledMessageCount`,
+etc.). This is not eventual consistency — the counts are permanently zero regardless of how long you wait.
 
-**Observation:** Operations that peek messages directly (e.g., `CountDlqMessagesHandler` with a time filter) immediately
-see the correct messages. Only the runtime property counts are eventually consistent.
+**Verified by diagnostic test:** After dead-lettering 3 messages, AMQP peeking correctly returns 3, while the admin API
+returns 0 for all counts — both immediately and after a 2-second delay.
 
-**Solution:** For tests that assert on runtime property counts (e.g., `CountDlq` no-filter path, `MonitorQueues`), use a
-polling helper that waits until the expected count appears:
+**Root cause:** The emulator v2.0.0 admin client support (released Jan 2026) covers entity CRUD operations
+(create/delete/update queues, topics, subscriptions) but does **not** implement runtime property tracking. The official
+[admin client announcement](https://techcommunity.microsoft.com/blog/messagingonazureblog/introducing-administration-client-support-for-the-azure-service-bus-emulator/4486433)
+only mentions "creating, updating, and deleting entities" — no mention of runtime properties or message counts. The
+official .NET sample code also only demonstrates CRUD operations.
+
+**Impact on tests:**
+
+- `CountDlqMessagesCommand` without a filter uses `GetQueueRuntimePropertiesAsync` (the "fast path") — untestable.
+- `MonitorQueuesCommand` / `MonitorSubscriptionsCommand` stream runtime properties — message counts untestable.
+- `WaitForDlqCountAsync` originally used the admin API and silently returned without reaching the expected count.
+
+**Solution:** Use AMQP peeking instead of admin runtime properties wherever possible:
 
 ```csharp
-protected async Task WaitForDlqCountAsync(EntityTarget target, int expectedCount, CancellationToken ct)
-{
-    var adminClient = new ServiceBusAdministrationClient(AdministrationConnectionString);
-    for (var attempt = 0; attempt < 20; attempt++)
-    {
-        // query runtime properties...
-        if (count >= expectedCount) return;
-        await Task.Delay(500, ct);
-    }
-}
+// WaitForDlqCountAsync — peek DLQ messages via AMQP instead of admin API
+var receiver = client.CreateReceiver(queue, new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter });
+var messages = await receiver.PeekMessagesAsync(expectedCount, cancellationToken: ct);
+if (messages.Count >= expectedCount) return;
 ```
+
+For count tests, provide a far-future `BeforeTime` to exercise the AMQP peeking code path (which counts messages by
+peeking) instead of the admin API fast path:
+
+```csharp
+var beforeTime = DateTimeOffset.UtcNow.AddHours(1);
+var result = await sender.Send(new CountDlqMessagesCommand(ns, target, beforeTime), ct);
+// TotalCount and FilteredCount are both accurate via AMQP peeking
+```
+
+For monitor tests, verify entity discovery by name but skip message count assertions.
 
 ## Abandoned DLQ Messages Reappear
 
