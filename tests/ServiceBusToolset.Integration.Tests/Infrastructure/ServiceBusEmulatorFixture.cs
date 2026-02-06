@@ -1,3 +1,4 @@
+using Azure.Messaging.ServiceBus;
 using Testcontainers.ServiceBus;
 using Xunit;
 
@@ -12,7 +13,7 @@ public sealed class ServiceBusEmulatorFixture : IAsyncLifetime
                                                       .Build();
 
     /// <summary>
-    /// AMQP connection string for <see cref="Azure.Messaging.ServiceBus.ServiceBusClient"/>.
+    /// AMQP connection string for <see cref="ServiceBusClient"/>.
     /// </summary>
     public string ConnectionString => _container.GetConnectionString();
 
@@ -24,10 +25,21 @@ public sealed class ServiceBusEmulatorFixture : IAsyncLifetime
         $"Endpoint=sb://{_container.Hostname}:{_container.GetMappedPublicPort(ManagementPort)};"
         + "SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true";
 
+    /// <summary>
+    /// Shared <see cref="ServiceBusClient"/> for test helper methods (dead-letter, populate, etc.).
+    /// Using a single client across all tests avoids exhausting the emulator's connection quota.
+    /// </summary>
+    public ServiceBusClient Client { get; private set; } = null!;
+
     public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
+        Client = new ServiceBusClient(_container.GetConnectionString());
     }
 
-    public ValueTask DisposeAsync() => _container.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        await Client.DisposeAsync();
+        await _container.DisposeAsync();
+    }
 }

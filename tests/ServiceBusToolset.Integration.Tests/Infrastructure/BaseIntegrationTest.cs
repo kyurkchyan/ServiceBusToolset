@@ -77,30 +77,70 @@ public abstract class BaseIntegrationTest : IAsyncDisposable
         string reason = "TestReason",
         string description = "Integration test dead-letter")
     {
-        await using var client = new ServiceBusClient(_fixture.ConnectionString);
+        var client = _fixture.Client;
 
         var senderEntity = target.IsQueueMode ? target.Queue! : target.Topic!;
-        await using var sender = client.CreateSender(senderEntity);
-        await sender.SendMessageAsync(message);
+        var sender = client.CreateSender(senderEntity);
+        await using (sender.ConfigureAwait(false))
+        {
+            await sender.SendMessageAsync(message);
+        }
 
-        await using var receiver = target.IsQueueMode
-                                       ? client.CreateReceiver(target.Queue!)
-                                       : client.CreateReceiver(target.Topic!, target.Subscription!);
+        var receiver = target.IsQueueMode
+                           ? client.CreateReceiver(target.Queue!)
+                           : client.CreateReceiver(target.Topic!, target.Subscription!);
+        await using (receiver.ConfigureAwait(false))
+        {
+            var received = await receiver.ReceiveMessageAsync(TimeSpan.FromSeconds(10));
+            if (received == null)
+            {
+                throw new InvalidOperationException($"Failed to receive message from {senderEntity} within timeout. " +
+                                                    "The message may not have been delivered yet.");
+            }
 
-        var received = await receiver.ReceiveMessageAsync(TimeSpan.FromSeconds(5));
-        await receiver.DeadLetterMessageAsync(received, reason, description);
+            await receiver.DeadLetterMessageAsync(received, reason, description);
+        }
     }
 
     protected async Task PopulateActiveMessagesAsync(
         string queueName,
         IEnumerable<ServiceBusMessage> messages)
     {
-        await using var client = new ServiceBusClient(_fixture.ConnectionString);
-        await using var sender = client.CreateSender(queueName);
-
-        foreach (var message in messages)
+        var client = _fixture.Client;
+        var sender = client.CreateSender(queueName);
+        await using (sender.ConfigureAwait(false))
         {
-            await sender.SendMessageAsync(message);
+            foreach (var message in messages)
+            {
+                await sender.SendMessageAsync(message);
+            }
+        }
+    }
+
+    protected async Task WaitForDlqCountAsync(EntityTarget target, int expectedCount, CancellationToken cancellationToken = default)
+    {
+        var adminClient = new ServiceBusAdministrationClient(AdministrationConnectionString);
+
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            long count;
+            if (target.IsQueueMode)
+            {
+                var props = await adminClient.GetQueueRuntimePropertiesAsync(target.Queue!, cancellationToken);
+                count = props.Value.DeadLetterMessageCount;
+            }
+            else
+            {
+                var props = await adminClient.GetSubscriptionRuntimePropertiesAsync(target.Topic!, target.Subscription!, cancellationToken);
+                count = props.Value.DeadLetterMessageCount;
+            }
+
+            if (count >= expectedCount)
+            {
+                return;
+            }
+
+            await Task.Delay(500, cancellationToken);
         }
     }
 
