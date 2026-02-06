@@ -125,7 +125,6 @@ public abstract class BaseIntegrationTest : IAsyncDisposable
 
         for (var attempt = 0; attempt < 20; attempt++)
         {
-            var entityPath = target.IsQueueMode ? target.Queue! : target.Topic!;
             var receiver = target.IsQueueMode
                                ? client.CreateReceiver(target.Queue!, new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter })
                                : client.CreateReceiver(target.Topic!, target.Subscription!, new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter });
