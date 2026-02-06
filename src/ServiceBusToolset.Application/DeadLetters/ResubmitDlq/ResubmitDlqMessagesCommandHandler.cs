@@ -80,7 +80,7 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
         await using var sender = client.CreateSender(command.TargetEntity);
 
         var totalResubmitted = 0;
-        var totalSkipped = 0;
+        var skippedSequenceNumbers = new HashSet<long>();
         var emptyBatches = 0;
 
         while (!cancellationToken.IsCancellationRequested && emptyBatches < EmptyBatchThreshold)
@@ -94,8 +94,6 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
                 emptyBatches++;
                 continue;
             }
-
-            emptyBatches = 0;
 
             var toResubmit = new List<(ServiceBusReceivedMessage Original, ServiceBusMessage New)>();
             var toAbandon = new List<ServiceBusReceivedMessage>();
@@ -124,13 +122,25 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
             {
                 var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken:cancellationToken));
                 await Task.WhenAll(abandonTasks);
-                totalSkipped += toAbandon.Count;
+                foreach (var m in toAbandon)
+                {
+                    skippedSequenceNumbers.Add(m.SequenceNumber);
+                }
             }
 
-            command.Progress?.Report((totalResubmitted, totalSkipped));
+            if (toResubmit.Count > 0)
+            {
+                emptyBatches = 0;
+            }
+            else
+            {
+                emptyBatches++;
+            }
+
+            command.Progress?.Report((totalResubmitted, skippedSequenceNumbers.Count));
         }
 
-        return Result.Success(new ResubmitDlqResult(totalResubmitted, totalSkipped));
+        return Result.Success(new ResubmitDlqResult(totalResubmitted, skippedSequenceNumbers.Count));
     }
 
     private static bool ShouldResubmit(ServiceBusReceivedMessage message, ResubmitDlqMessagesCommand command)

@@ -72,7 +72,7 @@ public sealed class PurgeDlqMessagesCommandHandler(IServiceBusClientFactory clie
                                                                      command.Target);
 
         var totalDeleted = 0;
-        var totalSkipped = 0;
+        var skippedSequenceNumbers = new HashSet<long>();
         var emptyBatches = 0;
 
         while (!cancellationToken.IsCancellationRequested && emptyBatches < EmptyBatchThreshold)
@@ -86,8 +86,6 @@ public sealed class PurgeDlqMessagesCommandHandler(IServiceBusClientFactory clie
                 emptyBatches++;
                 continue;
             }
-
-            emptyBatches = 0;
 
             var toComplete = new List<ServiceBusReceivedMessage>();
             var toAbandon = new List<ServiceBusReceivedMessage>();
@@ -109,13 +107,25 @@ public sealed class PurgeDlqMessagesCommandHandler(IServiceBusClientFactory clie
             tasks.AddRange(toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken:cancellationToken)));
             await Task.WhenAll(tasks);
 
-            totalDeleted += toComplete.Count;
-            totalSkipped += toAbandon.Count;
+            if (toComplete.Count > 0)
+            {
+                emptyBatches = 0;
+            }
+            else
+            {
+                emptyBatches++;
+            }
 
-            command.Progress?.Report((totalDeleted, totalSkipped));
+            totalDeleted += toComplete.Count;
+            foreach (var m in toAbandon)
+            {
+                skippedSequenceNumbers.Add(m.SequenceNumber);
+            }
+
+            command.Progress?.Report((totalDeleted, skippedSequenceNumbers.Count));
         }
 
-        return Result.Success(new PurgeDlqResult(totalDeleted, totalSkipped));
+        return Result.Success(new PurgeDlqResult(totalDeleted, skippedSequenceNumbers.Count));
     }
 
     private static bool ShouldPurge(ServiceBusReceivedMessage message, PurgeDlqMessagesCommand command)

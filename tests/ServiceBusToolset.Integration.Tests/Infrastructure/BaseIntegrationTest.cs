@@ -13,6 +13,9 @@ public abstract class BaseIntegrationTest : IAsyncDisposable
     private readonly ServiceBusEmulatorFixture _fixture;
     private readonly ServiceProvider _serviceProvider;
 
+    protected string ConnectionString => _fixture.ConnectionString;
+    private string AdministrationConnectionString => _fixture.AdministrationConnectionString;
+
     protected string TestId { get; } = Guid.NewGuid().ToString("N")[..8];
 
     private readonly List<string> _createdQueues = [];
@@ -20,9 +23,9 @@ public abstract class BaseIntegrationTest : IAsyncDisposable
     private readonly List<string> _createdTopics = [];
     private readonly List<string> _tempFiles = [];
 
-    protected string QueueName(string baseName) => $"{baseName}-{TestId}";
-    protected string TopicName(string baseName) => $"{baseName}-{TestId}";
-    protected string SubscriptionName(string baseName) => $"{baseName}-{TestId}";
+    protected string GetQueue(string baseName) => $"{baseName}-{TestId}";
+    protected string GetTopic(string baseName) => $"{baseName}-{TestId}";
+    protected string GetSubscription(string baseName) => $"{baseName}-{TestId}";
 
     protected BaseIntegrationTest(
         ServiceBusEmulatorFixture fixture,
@@ -34,7 +37,7 @@ public abstract class BaseIntegrationTest : IAsyncDisposable
 
         services.AddApplication();
 
-        services.AddSingleton<IServiceBusClientFactory>(new EmulatorServiceBusClientFactory(fixture.ConnectionString));
+        services.AddSingleton<IServiceBusClientFactory>(new EmulatorServiceBusClientFactory(fixture.ConnectionString, fixture.AdministrationConnectionString));
 
         configureServices?.Invoke(services);
 
@@ -49,21 +52,21 @@ public abstract class BaseIntegrationTest : IAsyncDisposable
 
     protected async Task CreateQueueAsync(string queueName)
     {
-        var adminClient = new ServiceBusAdministrationClient(_fixture.ConnectionString);
+        var adminClient = new ServiceBusAdministrationClient(AdministrationConnectionString);
         await adminClient.CreateQueueAsync(queueName);
         _createdQueues.Add(queueName);
     }
 
     protected async Task CreateTopicAsync(string topicName)
     {
-        var adminClient = new ServiceBusAdministrationClient(_fixture.ConnectionString);
+        var adminClient = new ServiceBusAdministrationClient(AdministrationConnectionString);
         await adminClient.CreateTopicAsync(topicName);
         _createdTopics.Add(topicName);
     }
 
     protected async Task CreateSubscriptionAsync(string topicName, string subscriptionName)
     {
-        var adminClient = new ServiceBusAdministrationClient(_fixture.ConnectionString);
+        var adminClient = new ServiceBusAdministrationClient(AdministrationConnectionString);
         await adminClient.CreateSubscriptionAsync(topicName, subscriptionName);
         _createdSubscriptions.Add((topicName, subscriptionName));
     }
@@ -110,7 +113,7 @@ public abstract class BaseIntegrationTest : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        var adminClient = new ServiceBusAdministrationClient(_fixture.ConnectionString);
+        var adminClient = new ServiceBusAdministrationClient(AdministrationConnectionString);
 
         foreach (var (topic, subscription) in _createdSubscriptions)
         {
