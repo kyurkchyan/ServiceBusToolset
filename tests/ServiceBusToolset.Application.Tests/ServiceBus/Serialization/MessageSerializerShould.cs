@@ -77,10 +77,10 @@ public class MessageSerializerShould : IDisposable
             }
         };
 
-        await MessageSerializer.WriteJsonAsync(_testFilePath, messages);
+        await MessageSerializer.WriteJsonAsync(_testFilePath, messages, TestContext.Current.CancellationToken);
 
         File.Exists(_testFilePath).ShouldBeTrue();
-        var content = await File.ReadAllTextAsync(_testFilePath);
+        var content = await File.ReadAllTextAsync(_testFilePath, TestContext.Current.CancellationToken);
         var parsed = JsonDocument.Parse(content);
         parsed.RootElement.ValueKind.ShouldBe(JsonValueKind.Array);
         parsed.RootElement.GetArrayLength().ShouldBe(1);
@@ -98,9 +98,9 @@ public class MessageSerializerShould : IDisposable
             }
         };
 
-        await MessageSerializer.WriteJsonAsync(_testFilePath, messages);
+        await MessageSerializer.WriteJsonAsync(_testFilePath, messages, TestContext.Current.CancellationToken);
 
-        var content = await File.ReadAllTextAsync(_testFilePath);
+        var content = await File.ReadAllTextAsync(_testFilePath, TestContext.Current.CancellationToken);
         content.ShouldContain("\"messageId\"");
         content.ShouldContain("\"enqueuedTime\"");
         content.ShouldNotContain("\"MessageId\"", Case.Sensitive);

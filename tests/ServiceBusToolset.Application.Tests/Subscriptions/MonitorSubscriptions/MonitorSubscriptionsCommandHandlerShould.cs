@@ -37,11 +37,11 @@ public class MonitorSubscriptionsCommandHandlerShould
                                                        cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
-        result.Value.SubscriptionStatistics.ShouldNotBeNull();
+        _ = result.Value.SubscriptionStatistics.ShouldNotBeNull();
 
         await cts.CancelAsync();
     }
@@ -67,7 +67,7 @@ public class MonitorSubscriptionsCommandHandlerShould
                                                        cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.SubscriptionStatistics.FirstAsync();
         await cts.CancelAsync();
 
@@ -101,7 +101,7 @@ public class MonitorSubscriptionsCommandHandlerShould
                                                        cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.SubscriptionStatistics.FirstAsync();
         await cts.CancelAsync();
 
@@ -131,7 +131,7 @@ public class MonitorSubscriptionsCommandHandlerShould
                                                        cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.SubscriptionStatistics.FirstAsync();
         await cts.CancelAsync();
 
@@ -165,7 +165,7 @@ public class MonitorSubscriptionsCommandHandlerShould
                                                        cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.SubscriptionStatistics.FirstAsync();
         await cts.CancelAsync();
 
@@ -200,7 +200,7 @@ public class MonitorSubscriptionsCommandHandlerShould
                                                        cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.SubscriptionStatistics.FirstAsync();
         await cts.CancelAsync();
 
@@ -227,7 +227,7 @@ public class MonitorSubscriptionsCommandHandlerShould
                                                        cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.SubscriptionStatistics.FirstAsync();
         await cts.CancelAsync();
 
@@ -257,7 +257,7 @@ public class MonitorSubscriptionsCommandHandlerShould
                                                        cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.SubscriptionStatistics.FirstAsync();
         await cts.CancelAsync();
 

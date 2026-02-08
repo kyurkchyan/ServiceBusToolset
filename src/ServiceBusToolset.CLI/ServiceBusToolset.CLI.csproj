@@ -32,15 +32,15 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.18.2"/>
-        <PackageReference Include="Azure.Identity" Version="1.13.2"/>
-        <PackageReference Include="Azure.Monitor.Query" Version="1.5.0"/>
+        <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.1"/>
+        <PackageReference Include="Azure.Identity" Version="1.17.1"/>
+        <PackageReference Include="Azure.Monitor.Query" Version="1.7.1"/>
         <PackageReference Include="CommandLineParser" Version="2.9.1"/>
         <PackageReference Include="Spectre.Console" Version="0.54.0"/>
-        <PackageReference Include="System.Reactive" Version="6.0.1"/>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0"/>
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0"/>
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+        <PackageReference Include="System.Reactive" Version="6.1.0"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2"/>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.102" PrivateAssets="All"/>
     </ItemGroup>
 
     <ItemGroup>

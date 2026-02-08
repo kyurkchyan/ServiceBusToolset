@@ -36,11 +36,11 @@ public class MonitorQueuesCommandHandlerShould
                                                cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
-        result.Value.QueueStatistics.ShouldNotBeNull();
+        _ = result.Value.QueueStatistics.ShouldNotBeNull();
 
         await cts.CancelAsync();
     }
@@ -60,7 +60,7 @@ public class MonitorQueuesCommandHandlerShould
                                                cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.QueueStatistics.FirstAsync();
         await cts.CancelAsync();
 
@@ -86,7 +86,7 @@ public class MonitorQueuesCommandHandlerShould
                                                cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.QueueStatistics.FirstAsync();
         await cts.CancelAsync();
 
@@ -111,7 +111,7 @@ public class MonitorQueuesCommandHandlerShould
                                                cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.QueueStatistics.FirstAsync();
         await cts.CancelAsync();
 
@@ -135,7 +135,7 @@ public class MonitorQueuesCommandHandlerShould
                                                cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.QueueStatistics.FirstAsync();
         await cts.CancelAsync();
 
@@ -157,7 +157,7 @@ public class MonitorQueuesCommandHandlerShould
                                                cts.Token);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
         var firstEmission = await result.Value.QueueStatistics.FirstAsync();
         await cts.CancelAsync();
 
