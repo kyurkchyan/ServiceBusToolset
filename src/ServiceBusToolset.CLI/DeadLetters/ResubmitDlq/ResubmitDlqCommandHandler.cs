@@ -134,41 +134,52 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        Output.Info($"Analyzing DLQ for {entityDescription}...");
+        Output.Info($"Scanning DLQ for {entityDescription}...");
 
-        var analyzeProgress = CreateProgressReporter("Peeked {0} messages...");
+        var streamCommand = new StreamDlqCategoriesCommand(cliCommand.Namespace, target);
+        var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
-        var analyzeCommand = new AnalyzeDlqCategoriesCommand(cliCommand.Namespace,
-                                                             target,
-                                                             analyzeProgress);
-
-        var categoriesResult = await mediator.Send(analyzeCommand, cancellationToken);
-
-        Console.WriteLine();
-
-        if (!categoriesResult.IsSuccess)
+        if (!sessionResult.IsSuccess)
         {
-            return categoriesResult.ToErrorResult<Unit>();
+            return sessionResult.ToErrorResult<Unit>();
         }
 
-        var categories = categoriesResult.Value.Categories;
+        using var session = sessionResult.Value;
 
-        if (categories.Count == 0)
+        DlqCategorySnapshot? latestSnapshot = null;
+        var snapshotLock = new object();
+
+        using var subscription = session.CategoryStream.Subscribe(snapshot =>
+        {
+            lock (snapshotLock)
+            {
+                latestSnapshot = snapshot;
+            }
+
+            RenderCategoryTable(snapshot, entityDescription);
+        });
+
+        Console.Write("\nSelect categories to resubmit (comma-separated numbers, 'all', or 'q' to quit): ");
+        var input = Output.ReadLine();
+
+        DlqCategorySnapshot currentSnapshot;
+        lock (snapshotLock)
+        {
+            currentSnapshot = latestSnapshot ?? new DlqCategorySnapshot([], 0, false);
+        }
+
+        if (session.Error != null)
+        {
+            Output.Error($"Error while scanning DLQ: {session.Error.Message}");
+        }
+
+        if (currentSnapshot.Categories.Count == 0)
         {
             Output.Info("No messages found in DLQ.");
             return Result.Success(Unit.Value);
         }
 
-        DlqCategoryDisplay.DisplayTable(categories,
-                                        categoriesResult.Value.TotalMessageCount,
-                                        Output.Info,
-                                        Output.Table);
-
-        Output.Info("");
-        Console.Write("Select categories to resubmit (comma-separated numbers, 'all', or 'q' to quit): ");
-        var input = Output.ReadLine();
-
-        var selectedIndices = CategorySelectionParser.Parse(input, categories.Count);
+        var selectedIndices = CategorySelectionParser.Parse(input, currentSnapshot.Categories.Count);
         if (selectedIndices == null)
         {
             Output.Info("Operation cancelled.");
@@ -181,19 +192,26 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
             return Result.Success(Unit.Value);
         }
 
-        var selection = CategorySelection.Build(categories, selectedIndices);
+        var selection = CategorySelection.Build(currentSnapshot.Categories, selectedIndices);
+        var messagesToResubmit = session.SnapshotForCategories(selection.SelectedKeys, cliCommand.BeforeEnqueueTime);
+
+        if (messagesToResubmit.Count == 0)
+        {
+            Output.Info("No messages match the selected categories.");
+            return Result.Success(Unit.Value);
+        }
 
         var targetInfo = GetTargetInfo(cliCommand);
-        Output.Info($"Resubmitting {selection.SelectedCount} messages from {selection.SelectedCategoryCount} categories{targetInfo}...");
+        Output.Info($"Resubmitting {messagesToResubmit.Count} messages from {selection.SelectedCategoryCount} categories{targetInfo}...");
 
         var resubmitProgress = CreateResubmitProgressReporter();
 
-        var resubmitCommand = new ResubmitDlqMessagesCommand(cliCommand.Namespace,
-                                                             target,
-                                                             cliCommand.EffectiveTarget,
-                                                             cliCommand.BeforeEnqueueTime,
-                                                             selection.SelectedKeys,
-                                                             resubmitProgress);
+        var resubmitCommand = new ResubmitFromCacheCommand(cliCommand.Namespace,
+                                                           target,
+                                                           cliCommand.EffectiveTarget,
+                                                           messagesToResubmit,
+                                                           session.ResubmitTracker,
+                                                           resubmitProgress);
 
         var resubmitResult = await mediator.Send(resubmitCommand, cancellationToken);
 
@@ -207,6 +225,27 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         Output.Success($"Resubmitted {resubmitResult.Value.ResubmittedCount} messages from DLQ for {entityDescription}{targetInfo}.");
 
         return Result.Success(Unit.Value);
+    }
+
+    private void RenderCategoryTable(DlqCategorySnapshot snapshot, string entityDescription)
+    {
+        if (snapshot.Categories.Count == 0)
+        {
+            var status = snapshot.IsComplete ? "Complete" : "Scanning...";
+            Output.Progress($"{status} {snapshot.TotalMessageCount} messages in {entityDescription}");
+            return;
+        }
+
+        Console.WriteLine();
+        DlqCategoryDisplay.DisplayTable(snapshot.Categories,
+                                        snapshot.TotalMessageCount,
+                                        Output.Info,
+                                        Output.Table);
+
+        if (!snapshot.IsComplete)
+        {
+            Output.Info("(still scanning...)");
+        }
     }
 
     private IProgress<(int Resubmitted, int Skipped)> CreateResubmitProgressReporter()

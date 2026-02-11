@@ -56,7 +56,7 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
 
             emptyBatches = 0;
 
-            var newMessages = messages.Select(CreateResubmitMessage).ToList();
+            var newMessages = messages.Select(MessageResubmitHelper.CreateResubmitMessage).ToList();
             await sender.SendMessagesAsync(newMessages, cancellationToken);
 
             var completeTasks = messages.Select(m => receiver.CompleteMessageAsync(m, cancellationToken));
@@ -102,7 +102,7 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
             {
                 if (ShouldResubmit(message, command))
                 {
-                    toResubmit.Add((message, CreateResubmitMessage(message)));
+                    toResubmit.Add((message, MessageResubmitHelper.CreateResubmitMessage(message)));
                 }
                 else
                 {
@@ -160,30 +160,5 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
         }
 
         return true;
-    }
-
-    private static ServiceBusMessage CreateResubmitMessage(ServiceBusReceivedMessage original)
-    {
-        var message = new ServiceBusMessage(original.Body)
-        {
-            ContentType = original.ContentType,
-            Subject = original.Subject,
-            MessageId = original.MessageId,
-            CorrelationId = original.CorrelationId,
-            To = original.To,
-            ReplyTo = original.ReplyTo,
-            ReplyToSessionId = original.ReplyToSessionId,
-            SessionId = original.SessionId,
-            PartitionKey = original.PartitionKey,
-            TransactionPartitionKey = original.TransactionPartitionKey,
-            TimeToLive = original.TimeToLive
-        };
-
-        foreach (var prop in original.ApplicationProperties)
-        {
-            message.ApplicationProperties[prop.Key] = prop.Value;
-        }
-
-        return message;
     }
 }
