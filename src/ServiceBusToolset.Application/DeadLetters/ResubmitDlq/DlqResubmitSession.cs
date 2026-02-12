@@ -16,6 +16,7 @@ public sealed class DlqResubmitSession(ReactiveMessageCache<ServiceBusReceivedMe
     public ReactiveMessageCache<ServiceBusReceivedMessage, long> Cache { get; } = cache;
     public IObservable<DlqCategorySnapshot> CategoryStream { get; } = categoryStream;
     public ResubmitTracker ResubmitTracker { get; } = resubmitTracker;
+    public TaskCompletionSource ScanCompletion { get; } = new();
     public Exception? Error { get; set; }
 
     public IReadOnlyList<ServiceBusReceivedMessage> SnapshotForCategories(

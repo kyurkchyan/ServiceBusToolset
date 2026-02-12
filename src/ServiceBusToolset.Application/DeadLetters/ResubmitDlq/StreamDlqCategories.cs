@@ -116,6 +116,7 @@ public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory c
         finally
         {
             cache.MarkComplete();
+            session.ScanCompletion.TrySetResult();
         }
     }
 }
