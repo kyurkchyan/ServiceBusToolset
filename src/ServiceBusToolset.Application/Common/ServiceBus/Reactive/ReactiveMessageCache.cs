@@ -7,7 +7,6 @@ public sealed class ReactiveMessageCache<TMessage, TKey>(Func<TMessage, TKey> ke
     where TKey : notnull
 {
     private readonly SourceCache<TMessage, TKey> _cache = new(keySelector);
-    private readonly Lock _lock = new();
     private bool _disposed;
 
     public bool IsComplete { get; private set; }
@@ -18,16 +17,13 @@ public sealed class ReactiveMessageCache<TMessage, TKey>(Func<TMessage, TKey> ke
 
     public void AddOrUpdate(IEnumerable<TMessage> items)
     {
-        lock (_lock)
+        _cache.Edit(updater =>
         {
-            _cache.Edit(updater =>
+            foreach (var item in items)
             {
-                foreach (var item in items)
-                {
-                    updater.AddOrUpdate(item);
-                }
-            });
-        }
+                updater.AddOrUpdate(item);
+            }
+        });
     }
 
     public void MarkComplete()
