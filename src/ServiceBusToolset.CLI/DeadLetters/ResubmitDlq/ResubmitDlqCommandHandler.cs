@@ -156,10 +156,15 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         using (session.CategoryStream.Subscribe(snapshot =>
                {
                    Console.Clear();
-                   RenderScanningView(snapshot, entityDescription);
+                   RenderScanningView(snapshot, entityDescription, session.TotalDlqCount);
                }))
         {
-            await session.ScanCompletion.Task;
+            var scanTask = session.ScanCompletion.Task;
+            var keyTask = Task.Run(() => WaitForStopKey(session.ScanCancellationToken));
+
+            await Task.WhenAny(scanTask, keyTask);
+            session.StopScanning();
+            await scanTask;
         }
 
         // Phase 2: Selection (static display + user input)
@@ -233,11 +238,16 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         return Result.Success(Unit.Value);
     }
 
-    private void RenderScanningView(DlqCategorySnapshot snapshot, string entityDescription)
+    private void RenderScanningView(DlqCategorySnapshot snapshot, string entityDescription, long? totalDlqCount)
     {
+        var peekedInfo = totalDlqCount.HasValue
+            ? $"Peeked {snapshot.TotalMessageCount} from {totalDlqCount.Value}"
+            : $"{snapshot.TotalMessageCount} messages found so far";
+
         if (snapshot.Categories.Count == 0)
         {
-            Output.Info($"Scanning DLQ for {entityDescription}... {snapshot.TotalMessageCount} messages found so far");
+            Output.Info($"Scanning DLQ for {entityDescription}... {peekedInfo}");
+            Output.Info("Press 'x' to stop scanning and select categories");
             return;
         }
 
@@ -246,7 +256,25 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
                                         Output.Info,
                                         Output.Table);
 
-        Output.Info($"Scanning... {snapshot.TotalMessageCount} messages");
+        Output.Info($"Scanning... {peekedInfo}");
+        Output.Info("Press 'x' to stop scanning and select categories");
+    }
+
+    private static void WaitForStopKey(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            if (Console.KeyAvailable)
+            {
+                var key = Console.ReadKey(intercept: true);
+                if (key.KeyChar is 'x' or 'X')
+                {
+                    return;
+                }
+            }
+
+            Thread.Sleep(100);
+        }
     }
 
     private IProgress<(int Resubmitted, int Skipped)> CreateResubmitProgressReporter()

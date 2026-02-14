@@ -13,11 +13,18 @@ public sealed class DlqResubmitSession(ReactiveMessageCache<ServiceBusReceivedMe
                                        ResubmitTracker resubmitTracker)
     : IDisposable
 {
+    private readonly CancellationTokenSource _scanCts = new();
+
     public ReactiveMessageCache<ServiceBusReceivedMessage, long> Cache { get; } = cache;
     public IObservable<DlqCategorySnapshot> CategoryStream { get; } = categoryStream;
     public ResubmitTracker ResubmitTracker { get; } = resubmitTracker;
     public TaskCompletionSource ScanCompletion { get; } = new();
+    public long? TotalDlqCount { get; set; }
     public Exception? Error { get; set; }
+
+    public CancellationToken ScanCancellationToken => _scanCts.Token;
+
+    public void StopScanning() => _scanCts.Cancel();
 
     public IReadOnlyList<ServiceBusReceivedMessage> SnapshotForCategories(
         IReadOnlySet<DlqCategoryKey> categoryKeys,
@@ -51,6 +58,8 @@ public sealed class DlqResubmitSession(ReactiveMessageCache<ServiceBusReceivedMe
 
     public void Dispose()
     {
+        _scanCts.Cancel();
+        _scanCts.Dispose();
         Cache.Dispose();
     }
 }

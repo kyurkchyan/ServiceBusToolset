@@ -24,19 +24,18 @@ public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory c
         var tracker = new ResubmitTracker();
 
         var categoryStream = cache.Connect()
-                                  .Throttle(TimeSpan.FromSeconds(1))
+                                  .Sample(TimeSpan.FromSeconds(1))
                                   .Select(_ => BuildCategorySnapshot(cache))
                                   .StartWith(new DlqCategorySnapshot([], 0, false));
 
         var session = new DlqResubmitSession(cache, categoryStream, tracker);
 
-        _ = Task.Run(() => FeedCacheAsync(clientFactory,
-                                          command,
-                                          cache,
-                                          tracker,
-                                          session,
-                                          cancellationToken),
-                     cancellationToken);
+        _ = Task.Run(async () =>
+        {
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, session.ScanCancellationToken);
+            await FeedCacheAsync(clientFactory, command, cache, tracker, session, linkedCts.Token);
+        }, cancellationToken);
 
         return new ValueTask<Result<DlqResubmitSession>>(Result.Success(session));
     }
@@ -71,6 +70,18 @@ public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory c
     {
         try
         {
+            try
+            {
+                var adminClient = clientFactory.CreateAdministrationClient(command.FullyQualifiedNamespace);
+                session.TotalDlqCount = command.Target.IsQueueMode
+                    ? (await adminClient.GetQueueRuntimePropertiesAsync(command.Target.Queue!, cancellationToken)).Value.DeadLetterMessageCount
+                    : (await adminClient.GetSubscriptionRuntimePropertiesAsync(command.Target.Topic!, command.Target.Subscription!, cancellationToken)).Value.DeadLetterMessageCount;
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Best-effort: total count is optional for the scanning UX
+            }
+
             await using var client = clientFactory.CreateClient(command.FullyQualifiedNamespace);
             await using var receiver = ReceiverFactory.CreateDlqReceiver(client, command.Target);
 
