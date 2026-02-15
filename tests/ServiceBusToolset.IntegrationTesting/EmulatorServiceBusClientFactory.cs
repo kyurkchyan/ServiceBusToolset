@@ -2,7 +2,7 @@ using Azure.Messaging.ServiceBus;
 using Azure.Messaging.ServiceBus.Administration;
 using ServiceBusToolset.Application.Common.ServiceBus.Abstractions;
 
-namespace ServiceBusToolset.Integration.Tests.Infrastructure;
+namespace ServiceBusToolset.IntegrationTesting;
 
 public sealed class EmulatorServiceBusClientFactory(string connectionString,
                                                     string administrationConnectionString) : IServiceBusClientFactory

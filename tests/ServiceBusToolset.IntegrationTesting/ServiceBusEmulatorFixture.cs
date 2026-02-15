@@ -2,7 +2,7 @@ using Azure.Messaging.ServiceBus;
 using Testcontainers.ServiceBus;
 using Xunit;
 
-namespace ServiceBusToolset.Integration.Tests.Infrastructure;
+namespace ServiceBusToolset.IntegrationTesting;
 
 public sealed class ServiceBusEmulatorFixture : IAsyncLifetime
 {
