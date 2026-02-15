@@ -142,7 +142,7 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        var streamCommand = new StreamDlqCategoriesCommand(cliCommand.Namespace, target);
+        var streamCommand = new StreamDlqCategoriesCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
         var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
         if (!sessionResult.IsSuccess)
@@ -168,7 +168,7 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         }
 
         // Phase 2: Selection (static display + user input)
-        var finalSnapshot = StreamDlqCategoriesCommandHandler.BuildCategorySnapshot(session.Cache);
+        var finalSnapshot = StreamDlqCategoriesCommandHandler.BuildCategorySnapshot(session.Cache, cliCommand.MergeSimilar);
 
         if (session.Error != null)
         {
@@ -204,7 +204,9 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         }
 
         var selection = CategorySelection.Build(finalSnapshot.Categories, selectedIndices);
-        var messagesToResubmit = session.SnapshotForCategories(selection.SelectedKeys, cliCommand.BeforeEnqueueTime);
+        var effectiveKeys = finalSnapshot.MergeResult?.ExpandKeys(selection.SelectedKeys)
+                            ?? selection.SelectedKeys;
+        var messagesToResubmit = session.SnapshotForCategories(effectiveKeys, cliCommand.BeforeEnqueueTime);
 
         if (messagesToResubmit.Count == 0)
         {
@@ -241,8 +243,8 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
     private void RenderScanningView(DlqCategorySnapshot snapshot, string entityDescription, long? totalDlqCount)
     {
         var peekedInfo = totalDlqCount.HasValue
-            ? $"Peeked {snapshot.TotalMessageCount} from {totalDlqCount.Value}"
-            : $"{snapshot.TotalMessageCount} messages found so far";
+                             ? $"Peeked {snapshot.TotalMessageCount} from {totalDlqCount.Value}"
+                             : $"{snapshot.TotalMessageCount} messages found so far";
 
         if (snapshot.Categories.Count == 0)
         {
@@ -266,7 +268,7 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         {
             if (Console.KeyAvailable)
             {
-                var key = Console.ReadKey(intercept: true);
+                var key = Console.ReadKey(true);
                 if (key.KeyChar is 'x' or 'X')
                 {
                     return;
