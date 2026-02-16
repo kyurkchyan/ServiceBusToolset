@@ -16,6 +16,8 @@
     </Folder>
     <Folder Name="/tests/">
         <Project Path="tests/ServiceBusToolset.Application.Tests/ServiceBusToolset.Application.Tests.csproj"/>
+        <Project Path="tests/ServiceBusToolset.IntegrationTesting/ServiceBusToolset.IntegrationTesting.csproj"/>
         <Project Path="tests/ServiceBusToolset.Integration.Tests/ServiceBusToolset.Integration.Tests.csproj"/>
+        <Project Path="tests/ServiceBusToolset.CLI.Integration.Tests/ServiceBusToolset.CLI.Integration.Tests.csproj"/>
     </Folder>
 </Solution>

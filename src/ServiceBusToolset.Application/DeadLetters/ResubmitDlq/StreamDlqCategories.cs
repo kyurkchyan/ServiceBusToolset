@@ -11,7 +11,8 @@ using EntityTarget = ServiceBusToolset.Application.Common.ServiceBus.Models.Enti
 namespace ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 
 public sealed record StreamDlqCategoriesCommand(string FullyQualifiedNamespace,
-                                                EntityTarget Target) : ICommand<Result<DlqResubmitSession>>;
+                                                EntityTarget Target,
+                                                bool MergeSimilar = false) : ICommand<Result<DlqResubmitSession>>;
 
 public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory clientFactory)
     : ICommandHandler<StreamDlqCategoriesCommand, Result<DlqResubmitSession>>
@@ -25,23 +26,29 @@ public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory c
 
         var categoryStream = cache.Connect()
                                   .Sample(TimeSpan.FromSeconds(1))
-                                  .Select(_ => BuildCategorySnapshot(cache))
+                                  .Select(_ => BuildCategorySnapshot(cache, command.MergeSimilar))
                                   .StartWith(new DlqCategorySnapshot([], 0, false));
 
         var session = new DlqResubmitSession(cache, categoryStream, tracker);
 
         _ = Task.Run(async () =>
-        {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken, session.ScanCancellationToken);
-            await FeedCacheAsync(clientFactory, command, cache, tracker, session, linkedCts.Token);
-        }, cancellationToken);
+                     {
+                         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.ScanCancellationToken);
+                         await FeedCacheAsync(clientFactory,
+                                              command,
+                                              cache,
+                                              tracker,
+                                              session,
+                                              linkedCts.Token);
+                     },
+                     cancellationToken);
 
         return new ValueTask<Result<DlqResubmitSession>>(Result.Success(session));
     }
 
     public static DlqCategorySnapshot BuildCategorySnapshot(
-        ReactiveMessageCache<ServiceBusReceivedMessage, long> cache)
+        ReactiveMessageCache<ServiceBusReceivedMessage, long> cache,
+        bool mergeSimilar = false)
     {
         var snapshot = cache.Snapshot();
         var categoryCounts = new Dictionary<DlqCategoryKey, int>();
@@ -57,7 +64,16 @@ public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory c
                          .Select(kvp => new DlqCategory(kvp.Key.Label, kvp.Key.DeadLetterReason, kvp.Value))
                          .ToList();
 
-        return new DlqCategorySnapshot(categories, snapshot.Count, cache.IsComplete);
+        if (!mergeSimilar)
+        {
+            return new DlqCategorySnapshot(categories, snapshot.Count, cache.IsComplete);
+        }
+
+        var mergeResult = CategoryMerger.Merge(categories);
+        return new DlqCategorySnapshot(mergeResult.MergedCategories,
+                                       snapshot.Count,
+                                       cache.IsComplete,
+                                       mergeResult);
     }
 
     public static async Task FeedCacheAsync(
@@ -74,8 +90,8 @@ public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory c
             {
                 var adminClient = clientFactory.CreateAdministrationClient(command.FullyQualifiedNamespace);
                 session.TotalDlqCount = command.Target.IsQueueMode
-                    ? (await adminClient.GetQueueRuntimePropertiesAsync(command.Target.Queue!, cancellationToken)).Value.DeadLetterMessageCount
-                    : (await adminClient.GetSubscriptionRuntimePropertiesAsync(command.Target.Topic!, command.Target.Subscription!, cancellationToken)).Value.DeadLetterMessageCount;
+                                            ? (await adminClient.GetQueueRuntimePropertiesAsync(command.Target.Queue!, cancellationToken)).Value.DeadLetterMessageCount
+                                            : (await adminClient.GetSubscriptionRuntimePropertiesAsync(command.Target.Topic!, command.Target.Subscription!, cancellationToken)).Value.DeadLetterMessageCount;
             }
             catch (Exception) when (!cancellationToken.IsCancellationRequested)
             {

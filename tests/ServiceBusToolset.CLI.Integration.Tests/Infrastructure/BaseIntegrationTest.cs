@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
+using ServiceBusToolset.IntegrationTesting;
 
-namespace ServiceBusToolset.Integration.Tests.Infrastructure;
+namespace ServiceBusToolset.CLI.Integration.Tests.Infrastructure;
 
 public abstract class BaseIntegrationTest(
     ServiceBusEmulatorFixture fixture,

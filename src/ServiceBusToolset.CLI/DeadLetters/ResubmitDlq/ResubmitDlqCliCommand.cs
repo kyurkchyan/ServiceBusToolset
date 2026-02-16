@@ -54,6 +54,11 @@ public class ResubmitDlqCliCommand : ICliCommand
     [Option("target-topic", HelpText = "Target topic to resubmit messages to (defaults to source topic)")]
     public string? TargetTopic { get; set; }
 
+    [Option("merge-similar",
+            Default = false,
+            HelpText = "Merge similar categories by replacing parameterized values (GUIDs, numbers) with wildcards")]
+    public bool MergeSimilar { get; set; }
+
     public bool IsQueueMode => !string.IsNullOrEmpty(Queue);
     public bool IsSubscriptionMode => !string.IsNullOrEmpty(Topic) && !string.IsNullOrEmpty(Subscription);
 

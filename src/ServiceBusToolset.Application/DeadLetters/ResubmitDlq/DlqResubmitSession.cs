@@ -6,7 +6,8 @@ namespace ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 
 public sealed record DlqCategorySnapshot(IReadOnlyList<DlqCategory> Categories,
                                          int TotalMessageCount,
-                                         bool IsComplete);
+                                         bool IsComplete,
+                                         CategoryMergeResult? MergeResult = null);
 
 public sealed class DlqResubmitSession(ReactiveMessageCache<ServiceBusReceivedMessage, long> cache,
                                        IObservable<DlqCategorySnapshot> categoryStream,
