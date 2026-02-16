@@ -264,6 +264,12 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
 
     private static void WaitForStopKey(CancellationToken cancellationToken)
     {
+        if (Console.IsInputRedirected)
+        {
+            cancellationToken.WaitHandle.WaitOne();
+            return;
+        }
+
         while (!cancellationToken.IsCancellationRequested)
         {
             if (Console.KeyAvailable)

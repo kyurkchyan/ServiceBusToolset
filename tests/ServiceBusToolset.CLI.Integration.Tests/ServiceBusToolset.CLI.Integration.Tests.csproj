@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <PackageReference Include="Meziantou.Xunit.v3.ParallelTestFramework" Version="1.0.6"/>
+        <PackageReference Include="NSubstitute" Version="5.3.0"/>
         <PackageReference Include="xunit.v3" Version="3.2.2"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -22,6 +23,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\ServiceBusToolset.Application\ServiceBusToolset.Application.csproj"/>
+        <ProjectReference Include="..\..\src\ServiceBusToolset.CLI\ServiceBusToolset.CLI.csproj"/>
         <ProjectReference Include="..\ServiceBusToolset.IntegrationTesting\ServiceBusToolset.IntegrationTesting.csproj"/>
     </ItemGroup>
 

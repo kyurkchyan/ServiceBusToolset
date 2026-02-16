@@ -1,7 +1,7 @@
-using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
-using ServiceBusToolset.Application.DeadLetters.Common;
-using ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
+using NSubstitute;
+using ServiceBusToolset.CLI.Common.Logging;
+using ServiceBusToolset.CLI.DeadLetters.ResubmitDlq;
 using ServiceBusToolset.CLI.Integration.Tests.Infrastructure;
 using ServiceBusToolset.IntegrationTesting;
 using Shouldly;
@@ -14,7 +14,7 @@ public class MergeSimilarResubmitIntegrationShould(ServiceBusEmulatorFixture fix
     : BaseIntegrationTest(fixture)
 {
     [Fact]
-    public async Task ResubmitAllMergedMessages_WhenSingleMergedCategorySelected()
+    public async Task ResubmitSelectedMergedCategory_WhenSingleCategoryChosen()
     {
         // Arrange
         var sourceQueue = GetQueue("merge-single-src");
@@ -54,61 +54,35 @@ public class MergeSimilarResubmitIntegrationShould(ServiceBusEmulatorFixture fix
 
         await WaitForDlqCountAsync(target, 8, TestContext.Current.CancellationToken);
 
+        var mockOutput = Substitute.For<IConsoleOutput>();
+        // "1" selects the first merged category (sorted by count desc → 5-message "Timeout" group)
+        mockOutput.ReadLine().Returns("1");
+
         var sender = CreateSender();
+        var handler = new ResubmitDlqCommandHandler(sender, mockOutput);
 
-        // Act - Stream categories to build cache
-        var streamResult = await sender.Send(new StreamDlqCategoriesCommand("ignored-by-emulator", target),
-            TestContext.Current.CancellationToken);
-        streamResult.IsSuccess.ShouldBeTrue();
-
-        using var session = streamResult.Value;
-        await WaitForSessionComplete(session);
-
-        // Build snapshot with merge-similar enabled
-        var snapshot = StreamDlqCategoriesCommandHandler.BuildCategorySnapshot(session.Cache, mergeSimilar: true);
-
-        snapshot.TotalMessageCount.ShouldBe(8);
-        snapshot.MergeResult.ShouldNotBeNull();
-        snapshot.MergeResult.MergedCategories.Count.ShouldBe(2);
-
-        // Find the "Error processing user *" merged category
-        var errorCategory = snapshot.MergeResult.MergedCategories
-            .FirstOrDefault(c => c.Label.Contains("Error processing"));
-        errorCategory.ShouldNotBeNull();
-        errorCategory.Count.ShouldBe(3);
-
-        // Select just the error category
-        var selectedKeys = new HashSet<DlqCategoryKey>
+        var command = new ResubmitDlqCliCommand
         {
-            new(errorCategory.Label, errorCategory.DeadLetterReason)
+            Namespace = "ignored-by-emulator",
+            Queue = sourceQueue,
+            Interactive = true,
+            MergeSimilar = true,
+            TargetQueue = targetQueue
         };
 
-        // Expand merged keys to original keys
-        var expandedKeys = snapshot.MergeResult.ExpandKeys(selectedKeys);
-
-        // Snapshot messages for expanded keys
-        var messagesToResubmit = session.SnapshotForCategories(expandedKeys);
-        messagesToResubmit.Count.ShouldBe(3);
-
-        // Resubmit
-        var result = await sender.Send(new ResubmitFromCacheCommand("ignored-by-emulator",
-                target,
-                targetQueue,
-                messagesToResubmit,
-                session.ResubmitTracker),
-            TestContext.Current.CancellationToken);
+        // Act
+        var exitCode = await handler.ExecuteAsync(command, verbose: false, TestContext.Current.CancellationToken);
 
         // Assert
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.ResubmittedCount.ShouldBe(3);
+        exitCode.ShouldBe(0);
+        mockOutput.Received().Success(Arg.Is<string>(s => s.Contains("5")));
 
-        // Verify messages landed in the target queue
         await using var client = new ServiceBusClient(ConnectionString);
         await using var receiver = client.CreateReceiver(targetQueue);
         var received = await receiver.ReceiveMessagesAsync(10,
             TimeSpan.FromSeconds(5),
             TestContext.Current.CancellationToken);
-        received.Count.ShouldBe(3);
+        received.Count.ShouldBe(5);
     }
 
     [Fact]
@@ -152,67 +126,33 @@ public class MergeSimilarResubmitIntegrationShould(ServiceBusEmulatorFixture fix
 
         await WaitForDlqCountAsync(target, 8, TestContext.Current.CancellationToken);
 
+        var mockOutput = Substitute.For<IConsoleOutput>();
+        mockOutput.ReadLine().Returns("all");
+
         var sender = CreateSender();
+        var handler = new ResubmitDlqCommandHandler(sender, mockOutput);
 
-        // Act - Stream categories to build cache
-        var streamResult = await sender.Send(new StreamDlqCategoriesCommand("ignored-by-emulator", target),
-            TestContext.Current.CancellationToken);
-        streamResult.IsSuccess.ShouldBeTrue();
+        var command = new ResubmitDlqCliCommand
+        {
+            Namespace = "ignored-by-emulator",
+            Queue = sourceQueue,
+            Interactive = true,
+            MergeSimilar = true,
+            TargetQueue = targetQueue
+        };
 
-        using var session = streamResult.Value;
-        await WaitForSessionComplete(session);
-
-        // Build snapshot with merge-similar enabled
-        var snapshot = StreamDlqCategoriesCommandHandler.BuildCategorySnapshot(session.Cache, mergeSimilar: true);
-
-        snapshot.TotalMessageCount.ShouldBe(8);
-        snapshot.MergeResult.ShouldNotBeNull();
-        snapshot.MergeResult.MergedCategories.Count.ShouldBe(2);
-
-        // Select all merged categories
-        var selectedKeys = snapshot.MergeResult.MergedCategories
-            .Select(c => new DlqCategoryKey(c.Label, c.DeadLetterReason))
-            .ToHashSet();
-
-        // Expand merged keys to original keys
-        var expandedKeys = snapshot.MergeResult.ExpandKeys(selectedKeys);
-
-        // Snapshot messages for expanded keys
-        var messagesToResubmit = session.SnapshotForCategories(expandedKeys);
-        messagesToResubmit.Count.ShouldBe(8);
-
-        // Resubmit
-        var result = await sender.Send(new ResubmitFromCacheCommand("ignored-by-emulator",
-                target,
-                targetQueue,
-                messagesToResubmit,
-                session.ResubmitTracker),
-            TestContext.Current.CancellationToken);
+        // Act
+        var exitCode = await handler.ExecuteAsync(command, verbose: false, TestContext.Current.CancellationToken);
 
         // Assert
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.ResubmittedCount.ShouldBe(8);
+        exitCode.ShouldBe(0);
+        mockOutput.Received().Success(Arg.Is<string>(s => s.Contains("8")));
 
-        // Verify messages landed in the target queue
         await using var client = new ServiceBusClient(ConnectionString);
         await using var receiver = client.CreateReceiver(targetQueue);
         var received = await receiver.ReceiveMessagesAsync(20,
             TimeSpan.FromSeconds(5),
             TestContext.Current.CancellationToken);
         received.Count.ShouldBe(8);
-    }
-
-    private static async Task WaitForSessionComplete(DlqResubmitSession session, int timeoutMs = 15000)
-    {
-        var sw = Stopwatch.StartNew();
-        while (!session.Cache.IsComplete && sw.ElapsedMilliseconds < timeoutMs)
-        {
-            await Task.Delay(100);
-        }
-
-        if (!session.Cache.IsComplete)
-        {
-            throw new TimeoutException("Session cache did not complete within timeout.");
-        }
     }
 }
