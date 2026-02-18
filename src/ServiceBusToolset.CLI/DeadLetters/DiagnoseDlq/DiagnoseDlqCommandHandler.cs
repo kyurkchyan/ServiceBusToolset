@@ -85,7 +85,7 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator, IConsoleOutput o
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        var streamCommand = new StreamDlqForDiagnoseCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
+        var streamCommand = new StreamDlqCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
         var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
         if (!sessionResult.IsSuccess)

@@ -1,22 +1,21 @@
 using System.Diagnostics;
 using ServiceBusToolset.Application.DeadLetters.Common;
-using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq;
 using ServiceBusToolset.Application.Tests.Common.Builders;
 using ServiceBusToolset.Application.Tests.Common.Mocks;
 using Shouldly;
 using Xunit;
 
-namespace ServiceBusToolset.Application.Tests.DeadLetters.DiagnoseDlq;
+namespace ServiceBusToolset.Application.Tests.DeadLetters.Common;
 
-public class StreamDlqForDiagnoseHandlerShould
+public class StreamDlqCommandHandlerShould
 {
     private readonly MockServiceBusClientFactory _mockFactory;
-    private readonly StreamDlqForDiagnoseCommandHandler _handler;
+    private readonly StreamDlqCommandHandler _handler;
 
-    public StreamDlqForDiagnoseHandlerShould()
+    public StreamDlqCommandHandlerShould()
     {
         _mockFactory = MockServiceBusClientFactory.Create();
-        _handler = new StreamDlqForDiagnoseCommandHandler(_mockFactory.Object);
+        _handler = new StreamDlqCommandHandler(_mockFactory.Object);
     }
 
     [Fact]
@@ -25,8 +24,8 @@ public class StreamDlqForDiagnoseHandlerShould
         // Arrange
         _mockFactory.WithNoMessages();
 
-        var command = new StreamDlqForDiagnoseCommand("test.servicebus.windows.net",
-                                                      EntityTargetBuilder.Queue());
+        var command = new StreamDlqCommand("test.servicebus.windows.net",
+                                           EntityTargetBuilder.Queue());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -60,8 +59,8 @@ public class StreamDlqForDiagnoseHandlerShould
 
         _mockFactory.WithMessagesToReturn(messages);
 
-        var command = new StreamDlqForDiagnoseCommand("test.servicebus.windows.net",
-                                                      EntityTargetBuilder.Queue());
+        var command = new StreamDlqCommand("test.servicebus.windows.net",
+                                           EntityTargetBuilder.Queue());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -74,7 +73,7 @@ public class StreamDlqForDiagnoseHandlerShould
     }
 
     [Fact]
-    public async Task IncludeAllMessages_WithoutFiltering()
+    public async Task IncludeAllMessages_WithoutResubmitFiltering()
     {
         // Arrange
         var messages = new[]
@@ -101,14 +100,14 @@ public class StreamDlqForDiagnoseHandlerShould
 
         _mockFactory.WithMessagesToReturn(messages);
 
-        var command = new StreamDlqForDiagnoseCommand("test.servicebus.windows.net",
-                                                      EntityTargetBuilder.Queue());
+        var command = new StreamDlqCommand("test.servicebus.windows.net",
+                                           EntityTargetBuilder.Queue());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
         await WaitForComplete(result.Value);
 
-        // Assert - all messages should be in cache (no filtering)
+        // Assert - all messages should be in cache (no resubmit filtering)
         result.Value.Cache.Count.ShouldBe(3);
 
         var snapshot = DlqCategoryScanner.BuildCategorySnapshot(result.Value.Cache);

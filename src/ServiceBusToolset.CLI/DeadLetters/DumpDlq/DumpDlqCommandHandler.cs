@@ -135,7 +135,7 @@ public sealed class DumpDlqCommandHandler(ISender mediator, IConsoleOutput outpu
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        var streamCommand = new StreamDlqForDumpCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
+        var streamCommand = new StreamDlqCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
         var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
         if (!sessionResult.IsSuccess)

@@ -40,7 +40,7 @@ public class PurgeFromCacheIntegrationShould(ServiceBusEmulatorFixture fixture)
         var sender = CreateSender();
 
         // Stream to build cache
-        var streamResult = await sender.Send(new StreamDlqForPurgeCommand("ignored-by-emulator", target),
+        var streamResult = await sender.Send(new StreamDlqCommand("ignored-by-emulator", target),
                                              TestContext.Current.CancellationToken);
         streamResult.IsSuccess.ShouldBeTrue();
 
@@ -54,8 +54,8 @@ public class PurgeFromCacheIntegrationShould(ServiceBusEmulatorFixture fixture)
 
         // Act
         var result = await sender.Send(new PurgeFromCacheCommand("ignored-by-emulator",
-                                                                  target,
-                                                                  messagesToPurge),
+                                                                 target,
+                                                                 messagesToPurge),
                                        TestContext.Current.CancellationToken);
 
         // Assert
@@ -91,7 +91,7 @@ public class PurgeFromCacheIntegrationShould(ServiceBusEmulatorFixture fixture)
         var sender = CreateSender();
 
         // Stream to build cache
-        var streamResult = await sender.Send(new StreamDlqForPurgeCommand("ignored-by-emulator", target),
+        var streamResult = await sender.Send(new StreamDlqCommand("ignored-by-emulator", target),
                                              TestContext.Current.CancellationToken);
         streamResult.IsSuccess.ShouldBeTrue();
 
@@ -104,8 +104,8 @@ public class PurgeFromCacheIntegrationShould(ServiceBusEmulatorFixture fixture)
 
         // Act
         var result = await sender.Send(new PurgeFromCacheCommand("ignored-by-emulator",
-                                                                  target,
-                                                                  messagesToPurge),
+                                                                 target,
+                                                                 messagesToPurge),
                                        TestContext.Current.CancellationToken);
 
         // Assert

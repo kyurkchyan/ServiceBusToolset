@@ -4,20 +4,19 @@ using Azure.Messaging.ServiceBus;
 using Mediator;
 using ServiceBusToolset.Application.Common.ServiceBus.Abstractions;
 using ServiceBusToolset.Application.Common.ServiceBus.Reactive;
-using ServiceBusToolset.Application.DeadLetters.Common;
 using EntityTarget = ServiceBusToolset.Application.Common.ServiceBus.Models.EntityTarget;
 
-namespace ServiceBusToolset.Application.DeadLetters.PurgeDlq;
+namespace ServiceBusToolset.Application.DeadLetters.Common;
 
-public sealed record StreamDlqForPurgeCommand(string FullyQualifiedNamespace,
-                                              EntityTarget Target,
-                                              bool MergeSimilar = false) : ICommand<Result<DlqScanSession>>;
+public sealed record StreamDlqCommand(string FullyQualifiedNamespace,
+                                      EntityTarget Target,
+                                      bool MergeSimilar = false) : ICommand<Result<DlqScanSession>>;
 
-public sealed class StreamDlqForPurgeCommandHandler(IServiceBusClientFactory clientFactory)
-    : ICommandHandler<StreamDlqForPurgeCommand, Result<DlqScanSession>>
+public sealed class StreamDlqCommandHandler(IServiceBusClientFactory clientFactory)
+    : ICommandHandler<StreamDlqCommand, Result<DlqScanSession>>
 {
     public ValueTask<Result<DlqScanSession>> Handle(
-        StreamDlqForPurgeCommand command,
+        StreamDlqCommand command,
         CancellationToken cancellationToken)
     {
         var cache = new ReactiveMessageCache<ServiceBusReceivedMessage, long>(m => m.SequenceNumber);

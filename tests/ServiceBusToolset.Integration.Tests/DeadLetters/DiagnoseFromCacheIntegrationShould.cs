@@ -89,7 +89,7 @@ public class DiagnoseFromCacheIntegrationShould : BaseIntegrationTest
         var sender = CreateSender();
 
         // Stream to build cache
-        var streamResult = await sender.Send(new StreamDlqForDiagnoseCommand("ignored-by-emulator", target),
+        var streamResult = await sender.Send(new StreamDlqCommand("ignored-by-emulator", target),
                                              TestContext.Current.CancellationToken);
         streamResult.IsSuccess.ShouldBeTrue();
 
@@ -103,8 +103,8 @@ public class DiagnoseFromCacheIntegrationShould : BaseIntegrationTest
 
         // Act
         var result = await sender.Send(new DiagnoseFromCacheCommand("test-resource",
-                                                                     100,
-                                                                     messagesToDiagnose),
+                                                                    100,
+                                                                    messagesToDiagnose),
                                        TestContext.Current.CancellationToken);
 
         // Assert

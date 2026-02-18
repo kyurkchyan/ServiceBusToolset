@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
 using ServiceBusToolset.Application.DeadLetters.Common;
-using ServiceBusToolset.Application.DeadLetters.DumpDlq;
 using ServiceBusToolset.Integration.Tests.Infrastructure;
 using Shouldly;
 using Xunit;
@@ -32,7 +31,7 @@ public class StreamDlqForDumpIntegrationShould(ServiceBusEmulatorFixture fixture
         var sender = CreateSender();
 
         // Act
-        var result = await sender.Send(new StreamDlqForDumpCommand("ignored-by-emulator", target),
+        var result = await sender.Send(new StreamDlqCommand("ignored-by-emulator", target),
                                        TestContext.Current.CancellationToken);
 
         // Assert
@@ -71,7 +70,7 @@ public class StreamDlqForDumpIntegrationShould(ServiceBusEmulatorFixture fixture
         var sender = CreateSender();
 
         // Act
-        var result = await sender.Send(new StreamDlqForDumpCommand("ignored-by-emulator", target),
+        var result = await sender.Send(new StreamDlqCommand("ignored-by-emulator", target),
                                        TestContext.Current.CancellationToken);
 
         // Assert
