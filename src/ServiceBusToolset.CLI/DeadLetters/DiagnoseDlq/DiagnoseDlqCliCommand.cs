@@ -55,6 +55,11 @@ public class DiagnoseDlqCliCommand : ICliCommand
             HelpText = "Interactive mode: show categories and select which to diagnose")]
     public bool Interactive { get; set; }
 
+    [Option("merge-similar",
+            Default = false,
+            HelpText = "Merge similar DLQ categories using LCS-based clustering (interactive mode only)")]
+    public bool MergeSimilar { get; set; }
+
     [Option('v',
             "verbose",
             Default = false,

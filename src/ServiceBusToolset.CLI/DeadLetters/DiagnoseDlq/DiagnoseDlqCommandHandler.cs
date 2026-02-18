@@ -5,7 +5,6 @@ using ServiceBusToolset.Application.Common.ServiceBus.Models;
 using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq;
 using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Models;
-using ServiceBusToolset.Application.DeadLetters.DumpDlq;
 using ServiceBusToolset.CLI.Common.Commands;
 using ServiceBusToolset.CLI.Common.Extensions;
 using ServiceBusToolset.CLI.Common.Logging;
@@ -86,41 +85,55 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator, IConsoleOutput o
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        Output.Info($"Analyzing DLQ for {entityDescription}...");
+        var streamCommand = new StreamDlqForDiagnoseCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
+        var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
-        var analyzeProgress = CreateProgressReporter("Peeked {0} messages...");
-
-        var analyzeCommand = new AnalyzeDlqCategoriesCommand(cliCommand.Namespace,
-                                                             target,
-                                                             analyzeProgress);
-
-        var categoriesResult = await mediator.Send(analyzeCommand, cancellationToken);
-
-        Console.WriteLine();
-
-        if (!categoriesResult.IsSuccess)
+        if (!sessionResult.IsSuccess)
         {
-            return categoriesResult.ToErrorResult<Unit>();
+            return sessionResult.ToErrorResult<Unit>();
         }
 
-        var categories = categoriesResult.Value.Categories;
+        using var session = sessionResult.Value;
 
-        if (categories.Count == 0)
+        // Phase 1: Scanning (live updates, no user input)
+        using (session.CategoryStream.Subscribe(snapshot =>
+               {
+                   Console.Clear();
+                   RenderScanningView(snapshot, entityDescription, session.TotalDlqCount);
+               }))
+        {
+            var scanTask = session.ScanCompletion.Task;
+            var keyTask = Task.Run(() => WaitForStopKey(session.ScanCancellationToken));
+
+            await Task.WhenAny(scanTask, keyTask);
+            session.StopScanning();
+            await scanTask;
+        }
+
+        // Phase 2: Selection & Diagnose
+        var finalSnapshot = DlqCategoryScanner.BuildCategorySnapshot(session.Cache, cliCommand.MergeSimilar);
+
+        if (session.Error != null)
+        {
+            Output.Error($"Error while scanning DLQ: {session.Error.Message}");
+        }
+
+        if (finalSnapshot.Categories.Count == 0)
         {
             Output.Info("No messages found in DLQ.");
             return Result.Success(Unit.Value);
         }
 
-        DlqCategoryDisplay.DisplayTable(categories,
-                                        categoriesResult.Value.TotalMessageCount,
+        Console.Clear();
+        DlqCategoryDisplay.DisplayTable(finalSnapshot.Categories,
+                                        finalSnapshot.TotalMessageCount,
                                         Output.Info,
                                         Output.Table);
 
-        Output.Info("");
-        Console.Write("Select categories to diagnose (comma-separated numbers, 'all', or 'q' to quit): ");
+        Console.Write("\nSelect categories to diagnose (comma-separated numbers, 'all', or 'q' to quit): ");
         var input = Output.ReadLine();
 
-        var selectedIndices = CategorySelectionParser.Parse(input, categories.Count);
+        var selectedIndices = CategorySelectionParser.Parse(input, finalSnapshot.Categories.Count);
         if (selectedIndices == null)
         {
             Output.Info("Operation cancelled.");
@@ -133,23 +146,27 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator, IConsoleOutput o
             return Result.Success(Unit.Value);
         }
 
-        var selection = CategorySelection.Build(categories, selectedIndices);
+        var selection = CategorySelection.Build(finalSnapshot.Categories, selectedIndices);
+        var effectiveKeys = finalSnapshot.MergeResult?.ExpandKeys(selection.SelectedKeys)
+                            ?? selection.SelectedKeys;
+        var messagesToDiagnose = session.SnapshotForCategories(effectiveKeys, cliCommand.BeforeEnqueueTime);
 
-        Output.Info($"Diagnosing up to {Math.Min(selection.SelectedCount, cliCommand.MaxMessages)} messages from {selection.SelectedCategoryCount} categories...");
+        if (messagesToDiagnose.Count == 0)
+        {
+            Output.Info("No messages match the selected categories.");
+            return Result.Success(Unit.Value);
+        }
 
-        var progress = CreateProgressReporter("Peeked {0} messages...");
+        Output.Info($"Diagnosing up to {Math.Min(messagesToDiagnose.Count, cliCommand.MaxMessages)} messages from {selection.SelectedCategoryCount} categories...");
+
         var batchProgress = CreateBatchProgressReporter();
 
-        var command = new DiagnoseDlqCommand(cliCommand.Namespace,
-                                             target,
-                                             cliCommand.AppInsightsResourceId,
-                                             cliCommand.MaxMessages,
-                                             cliCommand.BeforeEnqueueTime,
-                                             selection.SelectedKeys,
-                                             progress,
-                                             batchProgress);
+        var diagnoseCommand = new DiagnoseFromCacheCommand(cliCommand.AppInsightsResourceId,
+                                                           cliCommand.MaxMessages,
+                                                           messagesToDiagnose,
+                                                           batchProgress);
 
-        var result = await mediator.Send(command, cancellationToken);
+        var result = await mediator.Send(diagnoseCommand, cancellationToken);
 
         Console.WriteLine();
 
@@ -160,6 +177,51 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator, IConsoleOutput o
 
         OutputDiagnoseResults(result.Value, cliCommand);
         return Result.Success(Unit.Value);
+    }
+
+    private void RenderScanningView(DlqCategorySnapshot snapshot, string entityDescription, long? totalDlqCount)
+    {
+        var peekedInfo = totalDlqCount.HasValue
+                             ? $"Peeked {snapshot.TotalMessageCount} from {totalDlqCount.Value}"
+                             : $"{snapshot.TotalMessageCount} messages found so far";
+
+        if (snapshot.Categories.Count == 0)
+        {
+            Output.Info($"Scanning DLQ for {entityDescription}... {peekedInfo}");
+            Output.Info("Press 'x' to stop scanning and select categories");
+            return;
+        }
+
+        DlqCategoryDisplay.DisplayTable(snapshot.Categories,
+                                        snapshot.TotalMessageCount,
+                                        Output.Info,
+                                        Output.Table);
+
+        Output.Info($"Scanning... {peekedInfo}");
+        Output.Info("Press 'x' to stop scanning and select categories");
+    }
+
+    private static void WaitForStopKey(CancellationToken cancellationToken)
+    {
+        if (Console.IsInputRedirected)
+        {
+            cancellationToken.WaitHandle.WaitOne();
+            return;
+        }
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            if (Console.KeyAvailable)
+            {
+                var key = Console.ReadKey(true);
+                if (key.KeyChar is 'x' or 'X')
+                {
+                    return;
+                }
+            }
+
+            Thread.Sleep(100);
+        }
     }
 
     private void OutputDiagnoseResults(DiagnoseDlqResult result, DiagnoseDlqCliCommand cliCommand)
