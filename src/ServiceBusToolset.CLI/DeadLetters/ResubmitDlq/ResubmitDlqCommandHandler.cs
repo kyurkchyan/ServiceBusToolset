@@ -168,7 +168,7 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         }
 
         // Phase 2: Selection (static display + user input)
-        var finalSnapshot = StreamDlqCategoriesCommandHandler.BuildCategorySnapshot(session.Cache, cliCommand.MergeSimilar);
+        var finalSnapshot = DlqCategoryScanner.BuildCategorySnapshot(session.Cache, cliCommand.MergeSimilar);
 
         if (session.Error != null)
         {

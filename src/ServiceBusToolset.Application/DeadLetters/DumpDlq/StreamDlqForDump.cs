@@ -7,28 +7,27 @@ using ServiceBusToolset.Application.Common.ServiceBus.Reactive;
 using ServiceBusToolset.Application.DeadLetters.Common;
 using EntityTarget = ServiceBusToolset.Application.Common.ServiceBus.Models.EntityTarget;
 
-namespace ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
+namespace ServiceBusToolset.Application.DeadLetters.DumpDlq;
 
-public sealed record StreamDlqCategoriesCommand(string FullyQualifiedNamespace,
-                                                EntityTarget Target,
-                                                bool MergeSimilar = false) : ICommand<Result<DlqResubmitSession>>;
+public sealed record StreamDlqForDumpCommand(string FullyQualifiedNamespace,
+                                             EntityTarget Target,
+                                             bool MergeSimilar = false) : ICommand<Result<DlqScanSession>>;
 
-public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory clientFactory)
-    : ICommandHandler<StreamDlqCategoriesCommand, Result<DlqResubmitSession>>
+public sealed class StreamDlqForDumpCommandHandler(IServiceBusClientFactory clientFactory)
+    : ICommandHandler<StreamDlqForDumpCommand, Result<DlqScanSession>>
 {
-    public ValueTask<Result<DlqResubmitSession>> Handle(
-        StreamDlqCategoriesCommand command,
+    public ValueTask<Result<DlqScanSession>> Handle(
+        StreamDlqForDumpCommand command,
         CancellationToken cancellationToken)
     {
         var cache = new ReactiveMessageCache<ServiceBusReceivedMessage, long>(m => m.SequenceNumber);
-        var tracker = new ResubmitTracker();
 
         var categoryStream = cache.Connect()
                                   .Sample(TimeSpan.FromSeconds(1))
                                   .Select(_ => DlqCategoryScanner.BuildCategorySnapshot(cache, command.MergeSimilar))
                                   .StartWith(new DlqCategorySnapshot([], 0, false));
 
-        var session = new DlqResubmitSession(cache, categoryStream, tracker);
+        var session = new DlqScanSession(cache, categoryStream);
 
         _ = Task.Run(async () =>
                      {
@@ -38,11 +37,10 @@ public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory c
                                                                  command.Target,
                                                                  cache,
                                                                  session,
-                                                                 m => !tracker.WasResubmitted(m.MessageId),
-                                                                 linkedCts.Token);
+                                                                 cancellationToken:linkedCts.Token);
                      },
                      cancellationToken);
 
-        return new ValueTask<Result<DlqResubmitSession>>(Result.Success(session));
+        return new ValueTask<Result<DlqScanSession>>(Result.Success(session));
     }
 }

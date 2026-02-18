@@ -1,8 +1,7 @@
 using System.Diagnostics;
-using System.Reactive.Linq;
 using Azure.Messaging.ServiceBus;
 using ServiceBusToolset.Application.DeadLetters.Common;
-using ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
+using ServiceBusToolset.Application.DeadLetters.DumpDlq;
 using ServiceBusToolset.Integration.Tests.Infrastructure;
 using Shouldly;
 using Xunit;
@@ -10,14 +9,14 @@ using EntityTarget = ServiceBusToolset.Application.Common.ServiceBus.Models.Enti
 
 namespace ServiceBusToolset.Integration.Tests.DeadLetters;
 
-public class StreamDlqCategoriesIntegrationShould(ServiceBusEmulatorFixture fixture)
+public class StreamDlqForDumpIntegrationShould(ServiceBusEmulatorFixture fixture)
     : BaseIntegrationTest(fixture)
 {
     [Fact]
     public async Task PopulateCacheWithAllMessages_WhenDlqHasMessages()
     {
         // Arrange
-        var queue = GetQueue("stream-all");
+        var queue = GetQueue("dump-stream-all");
         await CreateQueueAsync(queue);
 
         var target = EntityTarget.ForQueue(queue);
@@ -33,7 +32,7 @@ public class StreamDlqCategoriesIntegrationShould(ServiceBusEmulatorFixture fixt
         var sender = CreateSender();
 
         // Act
-        var result = await sender.Send(new StreamDlqCategoriesCommand("ignored-by-emulator", target),
+        var result = await sender.Send(new StreamDlqForDumpCommand("ignored-by-emulator", target),
                                        TestContext.Current.CancellationToken);
 
         // Assert
@@ -51,7 +50,7 @@ public class StreamDlqCategoriesIntegrationShould(ServiceBusEmulatorFixture fixt
     public async Task GroupMessagesIntoCategories_WhenMultipleCategoriesExist()
     {
         // Arrange
-        var queue = GetQueue("stream-cats");
+        var queue = GetQueue("dump-stream-cats");
         await CreateQueueAsync(queue);
 
         var target = EntityTarget.ForQueue(queue);
@@ -72,7 +71,7 @@ public class StreamDlqCategoriesIntegrationShould(ServiceBusEmulatorFixture fixt
         var sender = CreateSender();
 
         // Act
-        var result = await sender.Send(new StreamDlqCategoriesCommand("ignored-by-emulator", target),
+        var result = await sender.Send(new StreamDlqForDumpCommand("ignored-by-emulator", target),
                                        TestContext.Current.CancellationToken);
 
         // Assert
@@ -88,65 +87,7 @@ public class StreamDlqCategoriesIntegrationShould(ServiceBusEmulatorFixture fixt
         snapshot.Categories.ShouldContain(c => c.Label == "PaymentError" && c.Count == 1);
     }
 
-    [Fact]
-    public async Task EmitCategorySnapshots_WhenSubscribedToStream()
-    {
-        // Arrange
-        var queue = GetQueue("stream-emit");
-        await CreateQueueAsync(queue);
-
-        var target = EntityTarget.ForQueue(queue);
-        await DeadLetterMessageAsync(target,
-                                     new ServiceBusMessage("msg-0") { Subject = "OrderFailed" },
-                                     "MaxRetries");
-
-        await WaitForDlqCountAsync(target, 1, TestContext.Current.CancellationToken);
-
-        var sender = CreateSender();
-
-        // Act
-        var result = await sender.Send(new StreamDlqCategoriesCommand("ignored-by-emulator", target),
-                                       TestContext.Current.CancellationToken);
-
-        result.IsSuccess.ShouldBeTrue();
-
-        using var session = result.Value;
-
-        // Get the initial snapshot (StartWith emits empty)
-        var firstSnapshot = await session.CategoryStream.FirstAsync();
-
-        // Assert
-        firstSnapshot.ShouldNotBeNull();
-        firstSnapshot.TotalMessageCount.ShouldBe(0);
-        firstSnapshot.Categories.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public async Task ReturnEmptyCache_WhenDlqIsEmpty()
-    {
-        // Arrange
-        var queue = GetQueue("stream-empty");
-        await CreateQueueAsync(queue);
-
-        var target = EntityTarget.ForQueue(queue);
-        var sender = CreateSender();
-
-        // Act
-        var result = await sender.Send(new StreamDlqCategoriesCommand("ignored-by-emulator", target),
-                                       TestContext.Current.CancellationToken);
-
-        // Assert
-        result.IsSuccess.ShouldBeTrue();
-
-        using var session = result.Value;
-        await WaitForSessionComplete(session);
-
-        session.Cache.Count.ShouldBe(0);
-        session.Cache.IsComplete.ShouldBeTrue();
-        session.Error.ShouldBeNull();
-    }
-
-    private static async Task WaitForSessionComplete(DlqResubmitSession session, int timeoutMs = 15000)
+    private static async Task WaitForSessionComplete(DlqScanSession session, int timeoutMs = 15000)
     {
         var sw = Stopwatch.StartNew();
         while (!session.Cache.IsComplete && sw.ElapsedMilliseconds < timeoutMs)
