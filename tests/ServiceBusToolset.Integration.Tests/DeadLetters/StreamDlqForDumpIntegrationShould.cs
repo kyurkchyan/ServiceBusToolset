@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
 using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Integration.Tests.Infrastructure;
@@ -84,19 +83,5 @@ public class StreamDlqForDumpIntegrationShould(ServiceBusEmulatorFixture fixture
         snapshot.Categories.Count.ShouldBe(2);
         snapshot.Categories.ShouldContain(c => c.Label == "OrderFailed" && c.Count == 2);
         snapshot.Categories.ShouldContain(c => c.Label == "PaymentError" && c.Count == 1);
-    }
-
-    private static async Task WaitForSessionComplete(DlqScanSession session, int timeoutMs = 15000)
-    {
-        var sw = Stopwatch.StartNew();
-        while (!session.Cache.IsComplete && sw.ElapsedMilliseconds < timeoutMs)
-        {
-            await Task.Delay(100);
-        }
-
-        if (!session.Cache.IsComplete)
-        {
-            throw new TimeoutException("Session cache did not complete within timeout.");
-        }
     }
 }

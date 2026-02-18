@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
 using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.DumpDlq;
@@ -59,7 +58,7 @@ public class DumpFromCacheIntegrationShould(ServiceBusEmulatorFixture fixture)
         dumpResult.Value.MessageCount.ShouldBe(2);
         File.Exists(outputPath).ShouldBeTrue();
 
-        var content = await File.ReadAllTextAsync(outputPath);
+        var content = await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken);
         content.ShouldContain("OrderFailed");
         content.ShouldNotContain("PaymentError");
     }
@@ -112,22 +111,8 @@ public class DumpFromCacheIntegrationShould(ServiceBusEmulatorFixture fixture)
         dumpResult.Value.MessageCount.ShouldBe(2);
         File.Exists(outputPath).ShouldBeTrue();
 
-        var content = await File.ReadAllTextAsync(outputPath);
+        var content = await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken);
         content.ShouldContain("OrderFailed");
         content.ShouldContain("PaymentError");
-    }
-
-    private static async Task WaitForSessionComplete(DlqScanSession session, int timeoutMs = 15000)
-    {
-        var sw = Stopwatch.StartNew();
-        while (!session.Cache.IsComplete && sw.ElapsedMilliseconds < timeoutMs)
-        {
-            await Task.Delay(100);
-        }
-
-        if (!session.Cache.IsComplete)
-        {
-            throw new TimeoutException("Session cache did not complete within timeout.");
-        }
     }
 }

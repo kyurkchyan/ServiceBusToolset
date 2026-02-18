@@ -7,6 +7,7 @@ using ServiceBusToolset.Application.DeadLetters.PurgeDlq;
 using ServiceBusToolset.CLI.Common.Commands;
 using ServiceBusToolset.CLI.Common.Extensions;
 using ServiceBusToolset.CLI.Common.Logging;
+using ServiceBusToolset.CLI.DeadLetters.Common;
 using Unit = Mediator.Unit;
 
 namespace ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
@@ -145,75 +146,24 @@ public sealed class PurgeDlqCommandHandler(ISender mediator, IConsoleOutput outp
 
         using var session = sessionResult.Value;
 
-        // Phase 1: Scanning (live updates, no user input)
-        using (session.CategoryStream.Subscribe(snapshot =>
-               {
-                   Console.Clear();
-                   RenderScanningView(snapshot, entityDescription, session.TotalDlqCount);
-               }))
+        await session.RunScanningPhaseAsync(Output, entityDescription);
+
+        var selection = session.GetCategorySelection(Output,
+                                                     cliCommand.MergeSimilar,
+                                                     cliCommand.BeforeEnqueueTime,
+                                                     "purge");
+        if (selection == null)
         {
-            var scanTask = session.ScanCompletion.Task;
-            var keyTask = Task.Run(() => WaitForStopKey(session.ScanCancellationToken));
-
-            await Task.WhenAny(scanTask, keyTask);
-            session.StopScanning();
-            await scanTask;
-        }
-
-        // Phase 2: Selection & Purge
-        var finalSnapshot = DlqCategoryScanner.BuildCategorySnapshot(session.Cache, cliCommand.MergeSimilar);
-
-        if (session.Error != null)
-        {
-            Output.Error($"Error while scanning DLQ: {session.Error.Message}");
-        }
-
-        if (finalSnapshot.Categories.Count == 0)
-        {
-            Output.Info("No messages found in DLQ.");
             return Result.Success(Unit.Value);
         }
 
-        Console.Clear();
-        DlqCategoryDisplay.DisplayTable(finalSnapshot.Categories,
-                                        finalSnapshot.TotalMessageCount,
-                                        Output.Info,
-                                        Output.Table);
-
-        Console.Write("\nSelect categories to purge (comma-separated numbers, 'all', or 'q' to quit): ");
-        var input = Output.ReadLine();
-
-        var selectedIndices = CategorySelectionParser.Parse(input, finalSnapshot.Categories.Count);
-        if (selectedIndices == null)
-        {
-            Output.Info("Operation cancelled.");
-            return Result.Success(Unit.Value);
-        }
-
-        if (selectedIndices.Count == 0)
-        {
-            Output.Warning("No valid categories selected.");
-            return Result.Success(Unit.Value);
-        }
-
-        var selection = CategorySelection.Build(finalSnapshot.Categories, selectedIndices);
-        var effectiveKeys = finalSnapshot.MergeResult?.ExpandKeys(selection.SelectedKeys)
-                            ?? selection.SelectedKeys;
-        var messagesToPurge = session.SnapshotForCategories(effectiveKeys, cliCommand.BeforeEnqueueTime);
-
-        if (messagesToPurge.Count == 0)
-        {
-            Output.Info("No messages match the selected categories.");
-            return Result.Success(Unit.Value);
-        }
-
-        Output.Info($"Purging {messagesToPurge.Count} messages from {selection.SelectedCategoryCount} categories...");
+        Output.Info($"Purging {selection.Messages.Count} messages from {selection.SelectedCategoryCount} categories...");
 
         var purgeProgress = CreatePurgeProgressReporter();
 
         var purgeCommand = new PurgeFromCacheCommand(cliCommand.Namespace,
                                                      target,
-                                                     messagesToPurge,
+                                                     selection.Messages,
                                                      purgeProgress);
 
         var purgeResult = await mediator.Send(purgeCommand, cancellationToken);
@@ -228,51 +178,6 @@ public sealed class PurgeDlqCommandHandler(ISender mediator, IConsoleOutput outp
         Output.Success($"Purged {purgeResult.Value.PurgedCount} messages from DLQ for {entityDescription}.");
 
         return Result.Success(Unit.Value);
-    }
-
-    private void RenderScanningView(DlqCategorySnapshot snapshot, string entityDescription, long? totalDlqCount)
-    {
-        var peekedInfo = totalDlqCount.HasValue
-                             ? $"Peeked {snapshot.TotalMessageCount} from {totalDlqCount.Value}"
-                             : $"{snapshot.TotalMessageCount} messages found so far";
-
-        if (snapshot.Categories.Count == 0)
-        {
-            Output.Info($"Scanning DLQ for {entityDescription}... {peekedInfo}");
-            Output.Info("Press 'x' to stop scanning and select categories");
-            return;
-        }
-
-        DlqCategoryDisplay.DisplayTable(snapshot.Categories,
-                                        snapshot.TotalMessageCount,
-                                        Output.Info,
-                                        Output.Table);
-
-        Output.Info($"Scanning... {peekedInfo}");
-        Output.Info("Press 'x' to stop scanning and select categories");
-    }
-
-    private static void WaitForStopKey(CancellationToken cancellationToken)
-    {
-        if (Console.IsInputRedirected)
-        {
-            cancellationToken.WaitHandle.WaitOne();
-            return;
-        }
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            if (Console.KeyAvailable)
-            {
-                var key = Console.ReadKey(true);
-                if (key.KeyChar is 'x' or 'X')
-                {
-                    return;
-                }
-            }
-
-            Thread.Sleep(100);
-        }
     }
 
     private Progress<(int Purged, int Skipped)> CreatePurgeProgressReporter()

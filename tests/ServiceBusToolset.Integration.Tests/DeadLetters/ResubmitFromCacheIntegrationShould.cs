@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
 using ServiceBusToolset.Application.Common.ServiceBus.Reactive;
 using ServiceBusToolset.Application.DeadLetters.Common;
@@ -254,19 +253,5 @@ public class ResubmitFromCacheIntegrationShould(ServiceBusEmulatorFixture fixtur
         result.IsSuccess.ShouldBeTrue();
         result.Value.ResubmittedCount.ShouldBe(0);
         result.Value.SkippedCount.ShouldBe(0);
-    }
-
-    private static async Task WaitForSessionComplete(DlqResubmitSession session, int timeoutMs = 15000)
-    {
-        var sw = Stopwatch.StartNew();
-        while (!session.Cache.IsComplete && sw.ElapsedMilliseconds < timeoutMs)
-        {
-            await Task.Delay(100);
-        }
-
-        if (!session.Cache.IsComplete)
-        {
-            throw new TimeoutException("Session cache did not complete within timeout.");
-        }
     }
 }

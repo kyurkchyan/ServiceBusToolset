@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
@@ -129,19 +128,5 @@ public class DiagnoseFromCacheIntegrationShould : BaseIntegrationTest
         result.IsSuccess.ShouldBeTrue();
         result.Value.TotalProcessed.ShouldBe(0);
         result.Value.Results.ShouldBeEmpty();
-    }
-
-    private static async Task WaitForSessionComplete(DlqScanSession session, int timeoutMs = 15000)
-    {
-        var sw = Stopwatch.StartNew();
-        while (!session.Cache.IsComplete && sw.ElapsedMilliseconds < timeoutMs)
-        {
-            await Task.Delay(100);
-        }
-
-        if (!session.Cache.IsComplete)
-        {
-            throw new TimeoutException("Session cache did not complete within timeout.");
-        }
     }
 }

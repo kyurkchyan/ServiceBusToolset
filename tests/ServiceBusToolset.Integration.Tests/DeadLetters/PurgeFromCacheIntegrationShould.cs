@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
 using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.PurgeDlq;
@@ -118,19 +117,5 @@ public class PurgeFromCacheIntegrationShould(ServiceBusEmulatorFixture fixture)
                                                          new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter });
         var remaining = await receiver.PeekMessageAsync(cancellationToken:TestContext.Current.CancellationToken);
         remaining.ShouldBeNull();
-    }
-
-    private static async Task WaitForSessionComplete(DlqScanSession session, int timeoutMs = 15000)
-    {
-        var sw = Stopwatch.StartNew();
-        while (!session.Cache.IsComplete && sw.ElapsedMilliseconds < timeoutMs)
-        {
-            await Task.Delay(100);
-        }
-
-        if (!session.Cache.IsComplete)
-        {
-            throw new TimeoutException("Session cache did not complete within timeout.");
-        }
     }
 }
