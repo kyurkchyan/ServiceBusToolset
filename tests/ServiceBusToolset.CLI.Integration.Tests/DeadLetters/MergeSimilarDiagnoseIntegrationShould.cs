@@ -125,7 +125,8 @@ public class MergeSimilarDiagnoseIntegrationShould : BaseIntegrationTest
             Queue = queue,
             AppInsightsResourceId = "test-resource",
             Interactive = true,
-            MergeSimilar = true
+            MergeSimilar = true,
+            MaxMessages = 1000
         };
 
         // Act
@@ -222,7 +223,8 @@ public class MergeSimilarDiagnoseIntegrationShould : BaseIntegrationTest
             Queue = queue,
             AppInsightsResourceId = "test-resource",
             Interactive = true,
-            MergeSimilar = true
+            MergeSimilar = true,
+            MaxMessages = 1000
         };
 
         // Act
