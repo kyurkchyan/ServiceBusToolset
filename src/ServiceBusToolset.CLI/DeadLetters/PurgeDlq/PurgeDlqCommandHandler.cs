@@ -101,6 +101,14 @@ public sealed class PurgeDlqCommandHandler(ISender mediator, IConsoleOutput outp
     {
         Output.Info($"Purging DLQ for {entityDescription}...");
 
+        Console.Write("Are you sure you want to purge all dead letter messages? (y/N): ");
+        var confirmation = Output.ReadLine();
+        if (!string.Equals(confirmation?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+        {
+            Output.Info("Operation cancelled.");
+            return Result.Success(Unit.Value);
+        }
+
         var progress = CreatePurgeProgressReporter();
 
         var command = new PurgeDlqMessagesCommand(cliCommand.Namespace,
