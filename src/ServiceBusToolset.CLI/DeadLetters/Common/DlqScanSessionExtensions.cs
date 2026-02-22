@@ -1,31 +1,94 @@
 using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.CLI.Common.Logging;
+using Spectre.Console;
+using Spectre.Console.Rendering;
 
 namespace ServiceBusToolset.CLI.DeadLetters.Common;
 
 public static class DlqScanSessionExtensions
 {
+    private const int TableChromeLines = 12;
+
     public static async Task RunScanningPhaseAsync(
         this DlqScanSession session,
         IConsoleOutput output,
         string entityDescription)
     {
-        using (session.CategoryStream.Subscribe(snapshot =>
-               {
-                   Console.Clear();
-                   RenderScanningView(output,
-                                      snapshot,
-                                      entityDescription,
-                                      session.TotalDlqCount);
-               }))
-        {
-            var scanTask = session.ScanCompletion.Task;
-            var keyTask = Task.Run(() => WaitForStopKey(session.ScanCancellationToken));
+        DlqCategorySnapshot latestSnapshot = new([], 0, false);
+        var scrollOffset = 0;
 
-            await Task.WhenAny(scanTask, keyTask);
-            session.StopScanning();
-            await scanTask;
-        }
+        await AnsiConsole.Live(new Text("Initializing..."))
+            .AutoClear(true)
+            .StartAsync(async ctx =>
+            {
+                void Refresh()
+                {
+                    var renderable = BuildScanningRenderable(latestSnapshot,
+                                                             entityDescription,
+                                                             session.TotalDlqCount,
+                                                             scrollOffset);
+                    ctx.UpdateTarget(renderable);
+                    ctx.Refresh();
+                }
+
+                using (session.CategoryStream.Subscribe(snapshot =>
+                       {
+                           latestSnapshot = snapshot;
+                           Refresh();
+                       }))
+                {
+                    var scanTask = session.ScanCompletion.Task;
+                    var keyTask = Task.Run(() =>
+                    {
+                        if (Console.IsInputRedirected)
+                        {
+                            session.ScanCancellationToken.WaitHandle.WaitOne();
+                            return;
+                        }
+
+                        while (!session.ScanCancellationToken.IsCancellationRequested)
+                        {
+                            if (Console.KeyAvailable)
+                            {
+                                var key = Console.ReadKey(true);
+                                if (key.KeyChar is 'x' or 'X')
+                                {
+                                    return;
+                                }
+
+                                var totalRows = latestSnapshot.Categories.Count;
+                                var maxVisible = Math.Max(1, Console.WindowHeight - TableChromeLines);
+                                var maxOffset = Math.Max(0, totalRows - maxVisible);
+
+                                var newOffset = key switch
+                                {
+                                    { Key: ConsoleKey.UpArrow, Modifiers: ConsoleModifiers.Shift } =>
+                                        Math.Max(0, scrollOffset - maxVisible),
+                                    { Key: ConsoleKey.DownArrow, Modifiers: ConsoleModifiers.Shift } =>
+                                        Math.Min(maxOffset, scrollOffset + maxVisible),
+                                    { Key: ConsoleKey.UpArrow } =>
+                                        Math.Max(0, scrollOffset - 1),
+                                    { Key: ConsoleKey.DownArrow } =>
+                                        Math.Min(maxOffset, scrollOffset + 1),
+                                    _ => scrollOffset
+                                };
+
+                                if (newOffset != scrollOffset)
+                                {
+                                    scrollOffset = newOffset;
+                                    Refresh();
+                                }
+                            }
+
+                            Thread.Sleep(50);
+                        }
+                    });
+
+                    await Task.WhenAny(scanTask, keyTask);
+                    session.StopScanning();
+                    await scanTask;
+                }
+            });
     }
 
     public static InteractiveCategorySelection? GetCategorySelection(
@@ -48,7 +111,6 @@ public static class DlqScanSessionExtensions
             return null;
         }
 
-        Console.Clear();
         DlqCategoryDisplay.DisplayTable(finalSnapshot.Categories,
                                         finalSnapshot.TotalMessageCount,
                                         output.Info,
@@ -84,11 +146,11 @@ public static class DlqScanSessionExtensions
         return new InteractiveCategorySelection(messages, selection.SelectedCategoryCount);
     }
 
-    private static void RenderScanningView(
-        IConsoleOutput output,
+    private static IRenderable BuildScanningRenderable(
         DlqCategorySnapshot snapshot,
         string entityDescription,
-        long? totalDlqCount)
+        long? totalDlqCount,
+        int scrollOffset)
     {
         var peekedInfo = totalDlqCount.HasValue
                              ? $"Peeked {snapshot.TotalMessageCount} from {totalDlqCount.Value}"
@@ -96,40 +158,52 @@ public static class DlqScanSessionExtensions
 
         if (snapshot.Categories.Count == 0)
         {
-            output.Info($"Scanning DLQ for {entityDescription}... {peekedInfo}");
-            output.Info("Press 'x' to stop scanning and select categories");
-            return;
+            return new Rows(
+                new Text($"Scanning DLQ for {entityDescription}... {peekedInfo}"),
+                new Markup("[dim]Press 'x' to stop scanning and select categories[/]"));
         }
 
-        DlqCategoryDisplay.DisplayTable(snapshot.Categories,
-                                        snapshot.TotalMessageCount,
-                                        output.Info,
-                                        output.Table);
+        var (headers, allRows) = DlqCategoryDisplay.GenerateTableData(snapshot.Categories);
+        var rowList = allRows.ToList();
 
-        output.Info($"Scanning... {peekedInfo}");
-        output.Info("Press 'x' to stop scanning and select categories");
-    }
+        var maxVisible = Math.Max(1, Console.WindowHeight - TableChromeLines);
+        var clampedOffset = Math.Clamp(scrollOffset, 0, Math.Max(0, rowList.Count - maxVisible));
+        var visibleRows = rowList.Skip(clampedOffset).Take(maxVisible);
 
-    private static void WaitForStopKey(CancellationToken cancellationToken)
-    {
-        if (Console.IsInputRedirected)
+        var table = new Table();
+        table.Border(TableBorder.Rounded);
+        table.Expand();
+
+        foreach (var header in headers)
         {
-            cancellationToken.WaitHandle.WaitOne();
-            return;
+            table.AddColumn(new TableColumn(header) { NoWrap = false });
         }
 
-        while (!cancellationToken.IsCancellationRequested)
+        foreach (var row in visibleRows)
         {
-            if (Console.KeyAvailable)
-            {
-                var key = Console.ReadKey(true);
-                if (key.KeyChar is 'x' or 'X')
-                {
-                    return;
-                }
-            }
-
-            Thread.Sleep(100);
+            table.AddRow(row.Select(Markup.Escape).ToArray());
         }
+
+        var elements = new List<IRenderable>();
+        elements.Add(new Text("Dead Letter Summary:"));
+
+        if (clampedOffset > 0)
+        {
+            elements.Add(new Markup($"[dim]  ▲ {clampedOffset} more rows above[/]"));
+        }
+
+        elements.Add(table);
+
+        var remainingBelow = rowList.Count - clampedOffset - maxVisible;
+        if (remainingBelow > 0)
+        {
+            elements.Add(new Markup($"[dim]  ▼ {remainingBelow} more rows below[/]"));
+        }
+
+        elements.Add(new Text($"Total: {snapshot.TotalMessageCount} messages"));
+        elements.Add(new Text($"Scanning... {peekedInfo}"));
+        elements.Add(new Markup("[dim]↑/↓ scroll  Shift+↑/↓ page  x to stop[/]"));
+
+        return new Rows(elements);
     }
 }

@@ -1,23 +1,24 @@
-using Microsoft.ApplicationInsights;
-using Microsoft.ApplicationInsights.DataContracts;
-using Microsoft.ApplicationInsights.Extensibility;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace ServiceBusToolset.TestHarness.DeadLetters.GenerateDlq;
 
 public sealed class TelemetryGenerator : IDisposable
 {
-    private static readonly Dictionary<string, Func<Exception>> ExceptionsBySubject = new()
+    private static readonly Dictionary<string, (string TypeName, string Message)> ExceptionsBySubject = new()
     {
-        ["OrderProcessor"] = () => new InvalidOperationException("Order state transition invalid: cannot move from 'Cancelled' to 'Shipped'"),
-        ["PaymentHandler"] = () => new HttpRequestException("Payment gateway returned 502 Bad Gateway"),
-        ["UserRegistration"] = () => new ArgumentException("Email format validation failed for input"),
-        ["InventorySync"] = () => new TimeoutException("Inventory service did not respond within 30s"),
-        ["NotificationService"] = () => new InvalidOperationException("Notification template 'order_confirm_v2' not found"),
-        ["ShippingCalculator"] = () => new ArithmeticException("Negative weight value encountered during rate calculation"),
-        ["InvoiceGenerator"] = () => new FormatException("Currency code 'XYZ' is not a valid ISO 4217 code"),
-        ["ReportScheduler"] = () => new UnauthorizedAccessException("Service principal lacks 'Reports.ReadWrite' permission"),
-        ["AuditLogger"] = () => new IOException("Audit log partition is full, cannot append entry"),
-        ["CacheInvalidator"] = () => new TimeoutException("Redis connection timed out after 5000ms")
+        ["OrderProcessor"] = ("System.InvalidOperationException", "Order state transition invalid: cannot move from 'Cancelled' to 'Shipped'"),
+        ["PaymentHandler"] = ("System.Net.Http.HttpRequestException", "Payment gateway returned 502 Bad Gateway"),
+        ["UserRegistration"] = ("System.ArgumentException", "Email format validation failed for input"),
+        ["InventorySync"] = ("System.TimeoutException", "Inventory service did not respond within 30s"),
+        ["NotificationService"] = ("System.InvalidOperationException", "Notification template 'order_confirm_v2' not found"),
+        ["ShippingCalculator"] = ("System.ArithmeticException", "Negative weight value encountered during rate calculation"),
+        ["InvoiceGenerator"] = ("System.FormatException", "Currency code 'XYZ' is not a valid ISO 4217 code"),
+        ["ReportScheduler"] = ("System.UnauthorizedAccessException", "Service principal lacks 'Reports.ReadWrite' permission"),
+        ["AuditLogger"] = ("System.IO.IOException", "Audit log partition is full, cannot append entry"),
+        ["CacheInvalidator"] = ("System.TimeoutException", "Redis connection timed out after 5000ms")
     };
 
     private static readonly string[] TraceMessages =
@@ -44,104 +45,211 @@ public sealed class TelemetryGenerator : IDisposable
         ("Azure Service Bus", "orders-topic/subscriptions/processor", "ServiceBusy")
     ];
 
-    private readonly TelemetryClient _client;
+    private readonly HttpClient _httpClient = new();
+    private readonly string _ingestionEndpoint;
+    private readonly string _instrumentationKey;
     private readonly Random _random;
 
     public TelemetryGenerator(string connectionString, int seed = 42)
     {
-        var config = new TelemetryConfiguration { ConnectionString = connectionString };
-        _client = new TelemetryClient(config);
+        var parts = ParseConnectionString(connectionString);
+        _instrumentationKey = parts.InstrumentationKey;
+        _ingestionEndpoint = parts.IngestionEndpoint.TrimEnd('/') + "/v2/track";
         _random = new Random(seed);
     }
 
-    public void GenerateTelemetry(IReadOnlyList<(string TraceId, DeadLetterSpec Spec)> items)
+    public async Task<(int ItemCount, int Errors)> GenerateTelemetryAsync(
+        IReadOnlyList<(string TraceId, DeadLetterSpec Spec)> items)
     {
+        var envelopes = new List<JsonObject>();
+
         foreach (var (traceId, spec) in items)
         {
             switch (spec.Profile)
             {
                 case TelemetryProfile.ExceptionOnly:
-                    SendException(traceId, spec);
+                    envelopes.Add(BuildException(traceId, spec));
                     break;
                 case TelemetryProfile.TraceOnly:
-                    SendTraces(traceId, spec);
+                    envelopes.AddRange(BuildTraces(traceId, spec));
                     break;
                 case TelemetryProfile.FailedDependencyOnly:
-                    SendFailedDependencies(traceId, spec);
+                    envelopes.AddRange(BuildDependencies(traceId, spec));
                     break;
                 case TelemetryProfile.FullTelemetry:
-                    SendException(traceId, spec);
-                    SendTraces(traceId, spec);
-                    SendFailedDependencies(traceId, spec);
+                    envelopes.Add(BuildException(traceId, spec));
+                    envelopes.AddRange(BuildTraces(traceId, spec));
+                    envelopes.AddRange(BuildDependencies(traceId, spec));
                     break;
             }
         }
 
-        _client.Flush();
-    }
-
-    private void SendException(string traceId, DeadLetterSpec spec)
-    {
-        var exceptionFactory = ExceptionsBySubject.GetValueOrDefault(spec.Subject)
-                               ?? (() => new Exception($"Unhandled error in {spec.Subject}"));
-
-        var telemetry = new ExceptionTelemetry(exceptionFactory())
+        // Send as newline-delimited JSON
+        var sb = new StringBuilder();
+        foreach (var envelope in envelopes)
         {
-            Timestamp = DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 30))
-        };
-        telemetry.Context.Operation.Id = traceId;
-        telemetry.Context.Operation.Name = spec.Subject;
+            sb.AppendLine(envelope.ToJsonString(new JsonSerializerOptions { WriteIndented = false }));
+        }
 
-        _client.TrackException(telemetry);
+        var content = new StringContent(sb.ToString(), Encoding.UTF8);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/x-json-stream");
+
+        var response = await _httpClient.PostAsync(_ingestionEndpoint, content);
+        var errors = 0;
+
+        if (!response.IsSuccessStatusCode)
+        {
+            errors = envelopes.Count;
+        }
+        else
+        {
+            // Parse response to count individual item errors
+            var responseBody = await response.Content.ReadAsStringAsync();
+            try
+            {
+                var result = JsonDocument.Parse(responseBody);
+                if (result.RootElement.TryGetProperty("errors", out var errorsArray))
+                {
+                    errors = errorsArray.GetArrayLength();
+                }
+            }
+            catch
+            {
+                // Response parsing failed, assume success
+            }
+        }
+
+        return (envelopes.Count, errors);
     }
 
-    private void SendTraces(string traceId, DeadLetterSpec spec)
+    private JsonObject BuildException(string traceId, DeadLetterSpec spec)
     {
+        var (typeName, message) = ExceptionsBySubject.GetValueOrDefault(spec.Subject,
+            ("System.Exception", $"Unhandled error in {spec.Subject}"));
+
+        return BuildEnvelope("Microsoft.ApplicationInsights.Exception", traceId, spec.Subject,
+            DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 30)),
+            "ExceptionData",
+            new JsonObject
+            {
+                ["ver"] = 2,
+                ["exceptions"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["typeName"] = typeName,
+                        ["message"] = message,
+                        ["hasFullStack"] = false
+                    }
+                }
+            });
+    }
+
+    private List<JsonObject> BuildTraces(string traceId, DeadLetterSpec spec)
+    {
+        var result = new List<JsonObject>();
         var traceCount = _random.Next(2, 5);
+
         for (var i = 0; i < traceCount; i++)
         {
             var template = TraceMessages[_random.Next(TraceMessages.Length)];
             var message = string.Format(template, _random.Next(1, 20), _random.Next(500, 5000));
+            var severityLevel = _random.Next(2, 5); // Warning, Error, Critical
 
-            var severity = (SeverityLevel)_random.Next(2, 5); // Warning, Error, Critical
-            var telemetry = new TraceTelemetry(message, severity)
-            {
-                Timestamp = DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 60))
-            };
-            telemetry.Context.Operation.Id = traceId;
-            telemetry.Context.Operation.Name = spec.Subject;
-
-            _client.TrackTrace(telemetry);
+            result.Add(BuildEnvelope("Microsoft.ApplicationInsights.Message", traceId, spec.Subject,
+                DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 60)),
+                "MessageData",
+                new JsonObject
+                {
+                    ["ver"] = 2,
+                    ["message"] = message,
+                    ["severityLevel"] = severityLevel
+                }));
         }
+
+        return result;
     }
 
-    private void SendFailedDependencies(string traceId, DeadLetterSpec spec)
+    private List<JsonObject> BuildDependencies(string traceId, DeadLetterSpec spec)
     {
+        var result = new List<JsonObject>();
         var depCount = _random.Next(1, 3);
+
         for (var i = 0; i < depCount; i++)
         {
             var template = DependencyTemplates[_random.Next(DependencyTemplates.Length)];
+            var durationMs = _random.Next(100, 30000);
+            var duration = TimeSpan.FromMilliseconds(durationMs);
 
-            var telemetry = new DependencyTelemetry(
-                template.Type,
-                template.Target,
-                $"{spec.Subject} dependency call",
-                data: null,
+            result.Add(BuildEnvelope("Microsoft.ApplicationInsights.RemoteDependency", traceId, spec.Subject,
                 DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 45)),
-                TimeSpan.FromMilliseconds(_random.Next(100, 30000)),
-                template.ResultCode,
-                success: false);
-            telemetry.Context.Operation.Id = traceId;
-            telemetry.Context.Operation.Name = spec.Subject;
-
-            _client.TrackDependency(telemetry);
+                "RemoteDependencyData",
+                new JsonObject
+                {
+                    ["ver"] = 2,
+                    ["name"] = $"{spec.Subject} dependency call",
+                    ["type"] = template.Type,
+                    ["target"] = template.Target,
+                    ["resultCode"] = template.ResultCode,
+                    ["success"] = false,
+                    ["duration"] = duration.ToString()
+                }));
         }
+
+        return result;
+    }
+
+    private JsonObject BuildEnvelope(string name, string traceId, string operationName,
+                                      DateTimeOffset timestamp, string baseType, JsonObject baseData)
+    {
+        return new JsonObject
+        {
+            ["name"] = name,
+            ["time"] = timestamp.UtcDateTime.ToString("O"),
+            ["iKey"] = _instrumentationKey,
+            ["tags"] = new JsonObject
+            {
+                ["ai.operation.id"] = traceId,
+                ["ai.operation.name"] = operationName
+            },
+            ["data"] = new JsonObject
+            {
+                ["baseType"] = baseType,
+                ["baseData"] = baseData
+            }
+        };
+    }
+
+    private static (string InstrumentationKey, string IngestionEndpoint) ParseConnectionString(string connectionString)
+    {
+        string? instrumentationKey = null;
+        string? ingestionEndpoint = null;
+
+        foreach (var part in connectionString.Split(';'))
+        {
+            var kvp = part.Split('=', 2);
+            if (kvp.Length != 2) continue;
+
+            var key = kvp[0].Trim();
+            var value = kvp[1].Trim();
+
+            if (key.Equals("InstrumentationKey", StringComparison.OrdinalIgnoreCase))
+                instrumentationKey = value;
+            else if (key.Equals("IngestionEndpoint", StringComparison.OrdinalIgnoreCase))
+                ingestionEndpoint = value;
+        }
+
+        if (string.IsNullOrEmpty(instrumentationKey))
+            throw new ArgumentException("Connection string must contain InstrumentationKey.");
+
+        // Default to global endpoint if not specified
+        ingestionEndpoint ??= "https://dc.services.visualstudio.com";
+
+        return (instrumentationKey, ingestionEndpoint);
     }
 
     public void Dispose()
     {
-        _client.Flush();
-        // Allow time for the telemetry to be transmitted
-        Task.Delay(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult();
+        _httpClient.Dispose();
     }
 }
