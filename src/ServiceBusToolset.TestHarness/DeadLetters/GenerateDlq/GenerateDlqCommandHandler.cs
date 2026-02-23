@@ -8,7 +8,7 @@ namespace ServiceBusToolset.TestHarness.DeadLetters.GenerateDlq;
 public sealed class GenerateDlqCommandHandler(IServiceBusClientFactory clientFactory, IConsoleOutput output)
     : BaseCommandHandler<GenerateDlqCliCommand>(output)
 {
-    private const int BatchSize = 10;
+    private const int BatchSize = 100;
 
     protected override async Task<int> ExecuteCoreAsync(GenerateDlqCliCommand command, bool verbose,
                                                         CancellationToken cancellationToken = default)
