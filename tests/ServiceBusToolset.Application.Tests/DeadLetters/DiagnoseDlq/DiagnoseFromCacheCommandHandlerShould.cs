@@ -23,7 +23,7 @@ public class DiagnoseFromCacheCommandHandlerShould
     public async Task ReturnEmptyResult_WhenNoMessages()
     {
         // Arrange
-        var command = new DiagnoseFromCacheCommand("test-resource", 100, []);
+        var command = new DiagnoseFromCacheCommand("test-resource", []);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -51,7 +51,7 @@ public class DiagnoseFromCacheCommandHandlerShould
 
         SetupAppInsightsResponse(traceId);
 
-        var command = new DiagnoseFromCacheCommand("test-resource", 100, messages);
+        var command = new DiagnoseFromCacheCommand("test-resource", messages);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -78,7 +78,7 @@ public class DiagnoseFromCacheCommandHandlerShould
                                             .Build()
         };
 
-        var command = new DiagnoseFromCacheCommand("test-resource", 100, messages);
+        var command = new DiagnoseFromCacheCommand("test-resource", messages);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -90,42 +90,10 @@ public class DiagnoseFromCacheCommandHandlerShould
     }
 
     [Fact]
-    public async Task RespectMaxMessages_WhenMoreMessagesThanLimit()
-    {
-        // Arrange
-        var traceId1 = "abc123def456abc123def456abc12345";
-        var traceId2 = "def456abc123def456abc123def45678";
-        var messages = new[]
-        {
-            ServiceBusReceivedMessageBuilder.Create()
-                                            .WithMessageId("msg-1")
-                                            .WithDiagnosticId(traceId1)
-                                            .WithSequenceNumber(1)
-                                            .Build(),
-            ServiceBusReceivedMessageBuilder.Create()
-                                            .WithMessageId("msg-2")
-                                            .WithDiagnosticId(traceId2)
-                                            .WithSequenceNumber(2)
-                                            .Build()
-        };
-
-        SetupAppInsightsResponse(traceId1);
-
-        var command = new DiagnoseFromCacheCommand("test-resource", 1, messages);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.TotalProcessed.ShouldBe(1);
-    }
-
-    [Fact]
     public async Task InitializeAppInsights_WhenHandled()
     {
         // Arrange
-        var command = new DiagnoseFromCacheCommand("test-resource", 100, []);
+        var command = new DiagnoseFromCacheCommand("test-resource", []);
 
         // Act
         await _handler.Handle(command, CancellationToken.None);

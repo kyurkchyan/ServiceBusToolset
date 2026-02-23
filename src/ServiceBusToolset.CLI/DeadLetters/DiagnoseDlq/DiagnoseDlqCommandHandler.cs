@@ -107,12 +107,11 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator, IConsoleOutput o
             return Result.Success(Unit.Value);
         }
 
-        Output.Info($"Diagnosing up to {Math.Min(selection.Messages.Count, cliCommand.MaxMessages)} messages from {selection.SelectedCategoryCount} categories...");
+        Output.Info($"Diagnosing {selection.Messages.Count} messages from {selection.SelectedCategoryCount} categories...");
 
         var batchProgress = CreateBatchProgressReporter();
 
         var diagnoseCommand = new DiagnoseFromCacheCommand(cliCommand.AppInsightsResourceId,
-                                                           cliCommand.MaxMessages,
                                                            selection.Messages,
                                                            batchProgress);
 

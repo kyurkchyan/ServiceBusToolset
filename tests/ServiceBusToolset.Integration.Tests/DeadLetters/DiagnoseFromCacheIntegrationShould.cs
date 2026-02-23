@@ -102,7 +102,6 @@ public class DiagnoseFromCacheIntegrationShould : BaseIntegrationTest
 
         // Act
         var result = await sender.Send(new DiagnoseFromCacheCommand("test-resource",
-                                                                    100,
                                                                     messagesToDiagnose),
                                        TestContext.Current.CancellationToken);
 
@@ -121,7 +120,7 @@ public class DiagnoseFromCacheIntegrationShould : BaseIntegrationTest
         var sender = CreateSender();
 
         // Act
-        var result = await sender.Send(new DiagnoseFromCacheCommand("test-resource", 100, []),
+        var result = await sender.Send(new DiagnoseFromCacheCommand("test-resource", []),
                                        TestContext.Current.CancellationToken);
 
         // Assert

@@ -7,7 +7,6 @@ using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Common.AppInsights;
 namespace ServiceBusToolset.Application.DeadLetters.DiagnoseDlq;
 
 public sealed record DiagnoseFromCacheCommand(string AppInsightsResourceId,
-                                              int MaxMessages,
                                               IReadOnlyList<ServiceBusReceivedMessage> MessagesToDiagnose,
                                               IProgress<(int Current, int Total)>? BatchProgress = null) : ICommand<Result<DiagnoseDlqResult>>;
 
@@ -20,9 +19,7 @@ public sealed class DiagnoseFromCacheCommandHandler(IAppInsightsService appInsig
     {
         appInsightsService.Initialize(command.AppInsightsResourceId);
 
-        var messages = command.MessagesToDiagnose
-                              .Take(command.MaxMessages)
-                              .ToList();
+        var messages = command.MessagesToDiagnose.ToList();
 
         if (messages.Count == 0)
         {
