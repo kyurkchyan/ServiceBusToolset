@@ -19,6 +19,7 @@ dotnet run -- purge-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscription
 | `--before` | | Only purge messages enqueued before this UTC datetime (ISO 8601) |
 | `--dry-run` | | Preview message count without purging |
 | `--interactive` | `-i` | Interactive mode: view and select categories to purge |
+| `--merge-similar` | | Merge similar DLQ categories using LCS-based clustering (interactive mode only) |
 | `--verbose` | `-v` | Enable verbose output |
 
 ## Examples

@@ -19,8 +19,9 @@ dotnet run -- diagnose-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscript
 | `--app-insights` | `-a` | **(Required)** Application Insights resource ID |
 | `--output` | `-o` | Output JSON file path (optional, prints summary to console) |
 | `--before` | | Only include messages enqueued before this UTC datetime (ISO 8601) |
-| `--max-messages` | | Maximum number of messages to diagnose (default: 100) |
+| `--max-messages` | | Maximum number of messages to diagnose (default: 1000) |
 | `--interactive` | `-i` | Interactive mode: view and select categories to diagnose |
+| `--merge-similar` | | Merge similar DLQ categories using LCS-based clustering (interactive mode only) |
 | `--verbose` | `-v` | Enable verbose output |
 
 ## Getting the App Insights Resource ID
