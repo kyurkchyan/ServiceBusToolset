@@ -1,6 +1,6 @@
-using System.Diagnostics;
 using System.Reactive.Linq;
 using Azure.Messaging.ServiceBus;
+using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 using ServiceBusToolset.Integration.Tests.Infrastructure;
 using Shouldly;
@@ -80,7 +80,7 @@ public class StreamDlqCategoriesIntegrationShould(ServiceBusEmulatorFixture fixt
         using var session = result.Value;
         await WaitForSessionComplete(session);
 
-        var snapshot = StreamDlqCategoriesCommandHandler.BuildCategorySnapshot(session.Cache);
+        var snapshot = DlqCategoryScanner.BuildCategorySnapshot(session.Cache);
         snapshot.TotalMessageCount.ShouldBe(3);
         snapshot.Categories.Count.ShouldBe(2);
         snapshot.Categories.ShouldContain(c => c.Label == "OrderFailed" && c.Count == 2);
@@ -143,19 +143,5 @@ public class StreamDlqCategoriesIntegrationShould(ServiceBusEmulatorFixture fixt
         session.Cache.Count.ShouldBe(0);
         session.Cache.IsComplete.ShouldBeTrue();
         session.Error.ShouldBeNull();
-    }
-
-    private static async Task WaitForSessionComplete(DlqResubmitSession session, int timeoutMs = 15000)
-    {
-        var sw = Stopwatch.StartNew();
-        while (!session.Cache.IsComplete && sw.ElapsedMilliseconds < timeoutMs)
-        {
-            await Task.Delay(100);
-        }
-
-        if (!session.Cache.IsComplete)
-        {
-            throw new TimeoutException("Session cache did not complete within timeout.");
-        }
     }
 }

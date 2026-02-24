@@ -4,63 +4,23 @@ using ServiceBusToolset.Application.DeadLetters.Common;
 
 namespace ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 
-public sealed record DlqCategorySnapshot(IReadOnlyList<DlqCategory> Categories,
-                                         int TotalMessageCount,
-                                         bool IsComplete,
-                                         CategoryMergeResult? MergeResult = null);
-
 public sealed class DlqResubmitSession(ReactiveMessageCache<ServiceBusReceivedMessage, long> cache,
                                        IObservable<DlqCategorySnapshot> categoryStream,
                                        ResubmitTracker resubmitTracker)
-    : IDisposable
+    : DlqScanSession(cache, categoryStream)
 {
-    private readonly CancellationTokenSource _scanCts = new();
-
-    public ReactiveMessageCache<ServiceBusReceivedMessage, long> Cache { get; } = cache;
-    public IObservable<DlqCategorySnapshot> CategoryStream { get; } = categoryStream;
     public ResubmitTracker ResubmitTracker { get; } = resubmitTracker;
-    public TaskCompletionSource ScanCompletion { get; } = new();
-    public long? TotalDlqCount { get; set; }
-    public Exception? Error { get; set; }
 
-    public CancellationToken ScanCancellationToken => _scanCts.Token;
-
-    public void StopScanning() => _scanCts.Cancel();
-
-    public IReadOnlyList<ServiceBusReceivedMessage> SnapshotForCategories(
+    protected override bool MatchesFilter(
+        ServiceBusReceivedMessage message,
         IReadOnlySet<DlqCategoryKey> categoryKeys,
-        DateTimeOffset? beforeTime = null)
+        DateTimeOffset? beforeTime)
     {
-        var snapshot = Cache.Snapshot();
+        if (ResubmitTracker.WasResubmitted(message.MessageId))
+        {
+            return false;
+        }
 
-        return snapshot
-               .Where(m =>
-               {
-                   if (ResubmitTracker.WasResubmitted(m.MessageId))
-                   {
-                       return false;
-                   }
-
-                   var key = DlqCategoryKey.FromMessage(m.Subject, m.DeadLetterReason);
-                   if (!categoryKeys.Contains(key))
-                   {
-                       return false;
-                   }
-
-                   if (beforeTime.HasValue && m.EnqueuedTime >= beforeTime.Value)
-                   {
-                       return false;
-                   }
-
-                   return true;
-               })
-               .ToList();
-    }
-
-    public void Dispose()
-    {
-        _scanCts.Cancel();
-        _scanCts.Dispose();
-        Cache.Dispose();
+        return base.MatchesFilter(message, categoryKeys, beforeTime);
     }
 }

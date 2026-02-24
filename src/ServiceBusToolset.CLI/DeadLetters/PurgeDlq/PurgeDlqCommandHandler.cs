@@ -7,6 +7,7 @@ using ServiceBusToolset.Application.DeadLetters.PurgeDlq;
 using ServiceBusToolset.CLI.Common.Commands;
 using ServiceBusToolset.CLI.Common.Extensions;
 using ServiceBusToolset.CLI.Common.Logging;
+using ServiceBusToolset.CLI.DeadLetters.Common;
 using Unit = Mediator.Unit;
 
 namespace ServiceBusToolset.CLI.DeadLetters.PurgeDlq;
@@ -100,6 +101,14 @@ public sealed class PurgeDlqCommandHandler(ISender mediator, IConsoleOutput outp
     {
         Output.Info($"Purging DLQ for {entityDescription}...");
 
+        Console.Write("Are you sure you want to purge all dead letter messages? (y/N): ");
+        var confirmation = Output.ReadLine();
+        if (!string.Equals(confirmation?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+        {
+            Output.Info("Operation cancelled.");
+            return Result.Success(Unit.Value);
+        }
+
         var progress = CreatePurgeProgressReporter();
 
         var command = new PurgeDlqMessagesCommand(cliCommand.Namespace,
@@ -135,64 +144,35 @@ public sealed class PurgeDlqCommandHandler(ISender mediator, IConsoleOutput outp
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        Output.Info($"Analyzing DLQ for {entityDescription}...");
+        var streamCommand = new StreamDlqCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
+        var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
-        var analyzeProgress = CreateProgressReporter("Peeked {0} messages...");
-
-        var analyzeCommand = new AnalyzeDlqCategoriesCommand(cliCommand.Namespace,
-                                                             target,
-                                                             analyzeProgress);
-
-        var categoriesResult = await mediator.Send(analyzeCommand, cancellationToken);
-
-        Console.WriteLine();
-
-        if (!categoriesResult.IsSuccess)
+        if (!sessionResult.IsSuccess)
         {
-            return categoriesResult.ToErrorResult<Unit>();
+            return sessionResult.ToErrorResult<Unit>();
         }
 
-        var categories = categoriesResult.Value.Categories;
+        using var session = sessionResult.Value;
 
-        if (categories.Count == 0)
+        await session.RunScanningPhaseAsync(Output, entityDescription);
+
+        var selection = session.GetCategorySelection(Output,
+                                                     cliCommand.MergeSimilar,
+                                                     cliCommand.BeforeEnqueueTime,
+                                                     "purge");
+        if (selection == null)
         {
-            Output.Info("No messages found in DLQ.");
             return Result.Success(Unit.Value);
         }
 
-        DlqCategoryDisplay.DisplayTable(categories,
-                                        categoriesResult.Value.TotalMessageCount,
-                                        Output.Info,
-                                        Output.Table);
-
-        Output.Info("");
-        Console.Write("Select categories to purge (comma-separated numbers, 'all', or 'q' to quit): ");
-        var input = Output.ReadLine();
-
-        var selectedIndices = CategorySelectionParser.Parse(input, categories.Count);
-        if (selectedIndices == null)
-        {
-            Output.Info("Operation cancelled.");
-            return Result.Success(Unit.Value);
-        }
-
-        if (selectedIndices.Count == 0)
-        {
-            Output.Warning("No valid categories selected.");
-            return Result.Success(Unit.Value);
-        }
-
-        var selection = CategorySelection.Build(categories, selectedIndices);
-
-        Output.Info($"Purging {selection.SelectedCount} messages from {selection.SelectedCategoryCount} categories...");
+        Output.Info($"Purging {selection.Messages.Count} messages from {selection.SelectedCategoryCount} categories...");
 
         var purgeProgress = CreatePurgeProgressReporter();
 
-        var purgeCommand = new PurgeDlqMessagesCommand(cliCommand.Namespace,
-                                                       target,
-                                                       cliCommand.BeforeEnqueueTime,
-                                                       selection.SelectedKeys,
-                                                       purgeProgress);
+        var purgeCommand = new PurgeFromCacheCommand(cliCommand.Namespace,
+                                                     target,
+                                                     selection.Messages,
+                                                     purgeProgress);
 
         var purgeResult = await mediator.Send(purgeCommand, cancellationToken);
 

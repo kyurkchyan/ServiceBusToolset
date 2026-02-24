@@ -48,6 +48,11 @@ public class PurgeDlqCliCommand : ICliCommand
             HelpText = "Interactive mode: show categories and select which to purge")]
     public bool Interactive { get; set; }
 
+    [Option("merge-similar",
+            Default = false,
+            HelpText = "Merge similar DLQ categories using LCS-based clustering (interactive mode only)")]
+    public bool MergeSimilar { get; set; }
+
     public bool IsQueueMode => !string.IsNullOrEmpty(Queue);
     public bool IsSubscriptionMode => !string.IsNullOrEmpty(Topic) && !string.IsNullOrEmpty(Subscription);
 

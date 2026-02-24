@@ -216,6 +216,7 @@ public class PurgeDlqMessagesCommandHandlerShould
 
         // Act
         await _handler.Handle(command, CancellationToken.None);
+        await Task.Delay(50, TestContext.Current.CancellationToken); // Allow Progress<T> thread pool callback to fire
 
         // Assert
         progressReports.ShouldNotBeEmpty();

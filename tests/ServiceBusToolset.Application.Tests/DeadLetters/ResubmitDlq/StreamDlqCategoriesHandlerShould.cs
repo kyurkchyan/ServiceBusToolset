@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reactive.Linq;
 using Azure.Messaging.ServiceBus;
 using ServiceBusToolset.Application.Common.ServiceBus.Reactive;
+using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 using ServiceBusToolset.Application.Tests.Common.Builders;
 using ServiceBusToolset.Application.Tests.Common.Mocks;
@@ -134,7 +135,7 @@ public class StreamDlqCategoriesHandlerShould
         cache.AddOrUpdate([msg1, msg2, msg3]);
 
         // Act
-        var snapshot = StreamDlqCategoriesCommandHandler.BuildCategorySnapshot(cache);
+        var snapshot = DlqCategoryScanner.BuildCategorySnapshot(cache);
 
         // Assert
         snapshot.TotalMessageCount.ShouldBe(3);
@@ -188,19 +189,17 @@ public class StreamDlqCategoriesHandlerShould
         tracker.MarkResubmitted("msg-1");
 
         var session = new DlqResubmitSession(cache,
-                                             cache.Connect().Select(_ => StreamDlqCategoriesCommandHandler.BuildCategorySnapshot(cache)),
+                                             cache.Connect().Select(_ => DlqCategoryScanner.BuildCategorySnapshot(cache)),
                                              tracker);
 
-        var command = new StreamDlqCategoriesCommand("test.servicebus.windows.net",
-                                                     EntityTargetBuilder.Queue());
-
         // Act
-        await StreamDlqCategoriesCommandHandler.FeedCacheAsync(_mockFactory.Object,
-                                                               command,
-                                                               cache,
-                                                               tracker,
-                                                               session,
-                                                               CancellationToken.None);
+        await DlqCategoryScanner.FeedCacheAsync(_mockFactory.Object,
+                                                "test.servicebus.windows.net",
+                                                EntityTargetBuilder.Queue(),
+                                                cache,
+                                                session,
+                                                m => !tracker.WasResubmitted(m.MessageId),
+                                                CancellationToken.None);
 
         // Assert
         cache.Count.ShouldBe(1);

@@ -1,9 +1,11 @@
+using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
 using Azure.Messaging.ServiceBus.Administration;
 using Mediator;
 using Microsoft.Extensions.DependencyInjection;
 using ServiceBusToolset.Application;
 using ServiceBusToolset.Application.Common.ServiceBus.Abstractions;
+using ServiceBusToolset.Application.DeadLetters.Common;
 using EntityTarget = ServiceBusToolset.Application.Common.ServiceBus.Models.EntityTarget;
 
 namespace ServiceBusToolset.IntegrationTesting;
@@ -143,6 +145,20 @@ public abstract class BaseServiceBusIntegrationTest : IAsyncDisposable
 
         throw new TimeoutException($"Expected {expectedCount} DLQ messages for {(target.IsQueueMode ? target.Queue : $"{target.Topic}/{target.Subscription}")}, " +
                                    "but the count was not reached within the timeout period.");
+    }
+
+    protected static async Task WaitForSessionComplete(DlqScanSession session, int timeoutMs = 15000)
+    {
+        var sw = Stopwatch.StartNew();
+        while (!session.Cache.IsComplete && sw.ElapsedMilliseconds < timeoutMs)
+        {
+            await Task.Delay(100);
+        }
+
+        if (!session.Cache.IsComplete)
+        {
+            throw new TimeoutException("Session cache did not complete within timeout.");
+        }
     }
 
     protected string TempFilePath(string extension = ".json")

@@ -13,6 +13,7 @@
     <Folder Name="/src/">
         <Project Path="src/ServiceBusToolset.Application/ServiceBusToolset.Application.csproj"/>
         <Project Path="src/ServiceBusToolset.CLI/ServiceBusToolset.CLI.csproj"/>
+        <Project Path="src/ServiceBusToolset.TestHarness/ServiceBusToolset.TestHarness.csproj"/>
     </Folder>
     <Folder Name="/tests/">
         <Project Path="tests/ServiceBusToolset.Application.Tests/ServiceBusToolset.Application.Tests.csproj"/>

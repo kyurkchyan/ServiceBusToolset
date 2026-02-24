@@ -48,60 +48,6 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
     }
 
     /// <summary>
-    /// Analyzes DLQ messages and groups them by category (subject + dead letter reason).
-    /// </summary>
-    public static async Task<List<DlqCategory>> AnalyzeCategoriesAsync(
-        ServiceBusClient client,
-        EntityTarget target,
-        IProgress<int>? progress,
-        CancellationToken cancellationToken)
-    {
-        await using var receiver = ReceiverFactory.CreateDlqReceiver(client, target);
-
-        var categoryCounts = new Dictionary<DlqCategoryKey, int>();
-        var totalPeeked = 0;
-        long? fromSequenceNumber = null;
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            IReadOnlyList<ServiceBusReceivedMessage> messages;
-
-            if (fromSequenceNumber.HasValue)
-            {
-                messages = await receiver.PeekMessagesAsync(MessageOperations.DefaultBatchSize,
-                                                            fromSequenceNumber.Value,
-                                                            cancellationToken);
-            }
-            else
-            {
-                messages = await receiver.PeekMessagesAsync(MessageOperations.DefaultBatchSize,
-                                                            cancellationToken:cancellationToken);
-            }
-
-            if (messages.Count == 0)
-            {
-                break;
-            }
-
-            foreach (var msg in messages)
-            {
-                var key = DlqCategoryKey.FromMessage(msg.Subject, msg.DeadLetterReason);
-                categoryCounts[key] = categoryCounts.GetValueOrDefault(key, 0) + 1;
-            }
-
-            totalPeeked += messages.Count;
-            fromSequenceNumber = messages[^1].SequenceNumber + 1;
-
-            progress?.Report(totalPeeked);
-        }
-
-        return categoryCounts
-               .OrderByDescending(kvp => kvp.Value)
-               .Select(kvp => new DlqCategory(kvp.Key.Label, kvp.Key.DeadLetterReason, kvp.Value))
-               .ToList();
-    }
-
-    /// <summary>
     /// Peeks all messages from the DLQ.
     /// </summary>
     public static async Task<List<ServiceBusReceivedMessage>> PeekAllMessagesAsync(

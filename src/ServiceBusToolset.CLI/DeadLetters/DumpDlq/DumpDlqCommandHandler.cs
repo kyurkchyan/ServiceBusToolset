@@ -6,6 +6,7 @@ using ServiceBusToolset.Application.DeadLetters.DumpDlq;
 using ServiceBusToolset.CLI.Common.Commands;
 using ServiceBusToolset.CLI.Common.Extensions;
 using ServiceBusToolset.CLI.Common.Logging;
+using ServiceBusToolset.CLI.DeadLetters.Common;
 using Unit = Mediator.Unit;
 
 namespace ServiceBusToolset.CLI.DeadLetters.DumpDlq;
@@ -135,69 +136,31 @@ public sealed class DumpDlqCommandHandler(ISender mediator, IConsoleOutput outpu
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        Output.Info($"Analyzing DLQ for {entityDescription}...");
+        var streamCommand = new StreamDlqCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
+        var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
-        var analyzeProgress = CreateProgressReporter("Peeked {0} messages...");
-
-        var analyzeCommand = new AnalyzeDlqCategoriesCommand(cliCommand.Namespace,
-                                                             target,
-                                                             analyzeProgress);
-
-        var categoriesResult = await mediator.Send(analyzeCommand, cancellationToken);
-
-        Console.WriteLine();
-
-        if (!categoriesResult.IsSuccess)
+        if (!sessionResult.IsSuccess)
         {
-            return categoriesResult.ToErrorResult<Unit>();
+            return sessionResult.ToErrorResult<Unit>();
         }
 
-        var categories = categoriesResult.Value.Categories;
+        using var session = sessionResult.Value;
 
-        if (categories.Count == 0)
-        {
-            Output.Info("No messages found in DLQ.");
-            return Result.Success(Unit.Value);
-        }
+        await session.RunScanningPhaseAsync(Output, entityDescription);
 
-        DlqCategoryDisplay.DisplayTable(categories,
-                                        categoriesResult.Value.TotalMessageCount,
-                                        Output.Info,
-                                        Output.Table);
-
-        Output.Info("");
-        Console.Write("Select categories to dump (comma-separated numbers, 'all', or 'q' to quit): ");
-        var input = Output.ReadLine();
-
-        var selectedIndices = CategorySelectionParser.Parse(input, categories.Count);
-        if (selectedIndices == null)
-        {
-            Output.Info("Operation cancelled.");
-            return Result.Success(Unit.Value);
-        }
-
-        if (selectedIndices.Count == 0)
-        {
-            Output.Warning("No valid categories selected.");
-            return Result.Success(Unit.Value);
-        }
-
-        var selection = CategorySelection.Build(categories, selectedIndices);
-
-        Output.Info($"Dumping {selection.SelectedCount} messages from {selection.SelectedCategoryCount} categories...");
-
-        var dumpProgress = CreateProgressReporter("Peeked {0} messages...");
-
-        var dumpCommand = new DumpDlqMessagesCommand(cliCommand.Namespace,
-                                                     target,
-                                                     cliCommand.OutputFile!,
+        var selection = session.GetCategorySelection(Output,
+                                                     cliCommand.MergeSimilar,
                                                      cliCommand.BeforeEnqueueTime,
-                                                     selection.SelectedKeys,
-                                                     dumpProgress);
+                                                     "dump");
+        if (selection == null)
+        {
+            return Result.Success(Unit.Value);
+        }
 
+        Output.Info($"Dumping {selection.Messages.Count} messages from {selection.SelectedCategoryCount} categories...");
+
+        var dumpCommand = new DumpFromCacheCommand(selection.Messages, cliCommand.OutputFile!);
         var dumpResult = await mediator.Send(dumpCommand, cancellationToken);
-
-        Console.WriteLine();
 
         if (!dumpResult.IsSuccess)
         {

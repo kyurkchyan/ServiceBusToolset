@@ -21,6 +21,7 @@ dotnet run -- resubmit-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscript
 | `--before` | | Only resubmit messages enqueued before this UTC datetime (ISO 8601) |
 | `--dry-run` | | Preview message count without resubmitting |
 | `--interactive` | `-i` | Interactive mode: view and select categories to resubmit |
+| `--merge-similar` | | Merge similar categories by replacing parameterized values (GUIDs, numbers) with wildcards |
 | `--verbose` | `-v` | Enable verbose output |
 
 ## Examples
