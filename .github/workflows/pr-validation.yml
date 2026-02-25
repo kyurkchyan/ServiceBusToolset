@@ -24,26 +24,8 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@baa11fbfe1d6520db94683bd5c7a3818018e4309 # v5.1.0
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Cache NuGet packages
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
-          restore-keys: nuget-
-
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build -c Release --no-restore
+      - name: Setup .NET & Build
+        uses: ./.github/actions/setup-dotnet-build
 
       - name: Check formatting
         run: dotnet format --verify-no-changes --verbosity diagnostic
@@ -122,32 +104,14 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@baa11fbfe1d6520db94683bd5c7a3818018e4309 # v5.1.0
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Cache NuGet packages
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
-          restore-keys: nuget-
-
-      - name: Restore dependencies
-        run: dotnet restore
+      - name: Setup .NET & Build
+        uses: ./.github/actions/setup-dotnet-build
 
       - name: Pre-pull emulator Docker images
         run: |
           docker pull mcr.microsoft.com/azure-messaging/servicebus-emulator:2.0.0 &
           docker pull mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04 &
           wait
-
-      - name: Build
-        run: dotnet build -c Release --no-restore
 
       - name: Run integration tests
         run: >
