@@ -16,12 +16,19 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@baa11fbfe1d6520db94683bd5c7a3818018e4309 # v5.1.0
         with:
           dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
+          restore-keys: nuget-
 
       - name: Restore dependencies
         run: dotnet restore
@@ -50,12 +57,19 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@baa11fbfe1d6520db94683bd5c7a3818018e4309 # v5.1.0
         with:
           dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
+          restore-keys: nuget-
 
       - name: Extract version from tag
         id: version
@@ -73,6 +87,17 @@ jobs:
       - name: Pack
         run: dotnet pack src/ServiceBusToolset.CLI -c Release --no-build -o ./artifacts -p:Version=${{ steps.version.outputs.version }}
 
+      - name: Generate SBOM
+        run: |
+          dotnet tool install --global Microsoft.Sbom.DotNetTool
+          sbom-tool generate \
+            -b ./artifacts \
+            -bc src/ServiceBusToolset.CLI \
+            -pn ServiceBusToolset \
+            -pv ${{ steps.version.outputs.version }} \
+            -ps "ServiceBusToolset" \
+            -nsb https://github.com/${{ github.repository }}
+
       - name: Push to NuGet
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
@@ -84,8 +109,9 @@ jobs:
           dotnet nuget push ./artifacts/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Upload package to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           files: |
             ./artifacts/*.nupkg
             ./artifacts/*.snupkg
+            ./artifacts/_manifest/spdx_2.2/**

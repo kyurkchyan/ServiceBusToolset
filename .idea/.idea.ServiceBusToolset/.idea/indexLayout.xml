@@ -3,6 +3,7 @@
   <component name="UserContentModel">
     <attachedFolders>
       <Path>.claude</Path>
+      <Path>.github</Path>
       <Path>docs</Path>
       <Path>infra</Path>
     </attachedFolders>

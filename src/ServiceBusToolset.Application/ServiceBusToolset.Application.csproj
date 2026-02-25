@@ -1,24 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-    </PropertyGroup>
-
     <ItemGroup>
-        <PackageReference Include="Mediator.Abstractions" Version="3.0.1"/>
-        <PackageReference Include="Mediator.SourceGenerator" Version="3.0.1">
+        <PackageReference Include="Mediator.Abstractions"/>
+        <PackageReference Include="Mediator.SourceGenerator">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Ardalis.Result" Version="10.1.0"/>
-        <PackageReference Include="Azure.Identity" Version="1.17.1"/>
-        <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.1"/>
-        <PackageReference Include="Azure.Monitor.Query" Version="1.7.1"/>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2"/>
-        <PackageReference Include="System.Reactive" Version="6.1.0"/>
-        <PackageReference Include="DynamicData" Version="9.0.4"/>
+        <PackageReference Include="Ardalis.Result"/>
+        <PackageReference Include="Azure.Identity"/>
+        <PackageReference Include="Azure.Messaging.ServiceBus"/>
+        <PackageReference Include="Azure.Monitor.Query"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
+        <PackageReference Include="System.Reactive"/>
+        <PackageReference Include="DynamicData"/>
     </ItemGroup>
 
 </Project>
