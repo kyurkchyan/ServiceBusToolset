@@ -1,0 +1,42 @@
+language: en-US
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - '!**/*.Designer.cs'
+    - '!**/*.g.cs'
+    - '!**/obj/**'
+    - '!**/bin/**'
+    - '!**/*.diff'
+  path_instructions:
+    - path: src/ServiceBusToolset.Application/**
+      instructions: >
+        This is the Application layer using Vertical Slice Architecture.
+        Each feature is a self-contained slice with Command, CommandHandler, and Result types.
+        Uses martinothanar/Mediator (source-generated) for CQRS and Ardalis.Result for return types.
+        Cross-cutting concerns live in Common/ folders at the appropriate level.
+    - path: src/ServiceBusToolset.CLI/**
+      instructions: >
+        This is the CLI presentation layer. It must not contain business logic.
+        CLI handlers inject ISender (Mediator) to dispatch commands to the Application layer.
+        Uses CommandLineParser for argument parsing and Spectre.Console for output.
+    - path: tests/**
+      instructions: >
+        Test classes follow [ClassName]Should naming. Test methods follow [Action]_When[Condition] naming.
+        Use Shouldly for assertions and NSubstitute for mocking. Never use #region/#endregion.
+    - path: .github/workflows/**
+      instructions: >
+        Review for security best practices: pin action versions, avoid script injection
+        via untrusted inputs, ensure secrets are not logged.
+
+tools:
+  actionlint:
+    enabled: true
+  markdownlint:
+    enabled: true
+  yamllint:
+    enabled: true
