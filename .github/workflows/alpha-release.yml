@@ -23,6 +23,7 @@ jobs:
   test:
     name: Run Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -137,7 +138,9 @@ jobs:
         run: dotnet build -c Release --no-restore
 
       - name: Pack
-        run: dotnet pack src/ServiceBusToolset.CLI -c Release --no-build -o ./artifacts -p:Version=${{ steps.version.outputs.version }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: dotnet pack src/ServiceBusToolset.CLI -c Release --no-build -o ./artifacts -p:Version=$VERSION
 
       - name: Push to NuGet
         env:

@@ -86,18 +86,23 @@ jobs:
         run: dotnet build -c Release --no-restore
 
       - name: Pack
-        run: dotnet pack src/ServiceBusToolset.CLI -c Release --no-build -o ./artifacts -p:Version=${{ steps.version.outputs.version }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: dotnet pack src/ServiceBusToolset.CLI -c Release --no-build -o ./artifacts -p:Version=$VERSION
 
       - name: Generate SBOM
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REPO: ${{ github.repository }}
         run: |
           dotnet tool install --global Microsoft.Sbom.DotNetTool
           sbom-tool generate \
             -b ./artifacts \
             -bc src/ServiceBusToolset.CLI \
             -pn ServiceBusToolset \
-            -pv ${{ steps.version.outputs.version }} \
+            -pv "$VERSION" \
             -ps "ServiceBusToolset" \
-            -nsb https://github.com/${{ github.repository }}
+            -nsb "https://github.com/$REPO"
 
       - name: Push to NuGet
         env:
