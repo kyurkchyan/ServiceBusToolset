@@ -91,7 +91,7 @@ public sealed class ResubmitFromCacheCommandHandler(IServiceBusClientFactory cli
 
             if (toAbandon.Count > 0)
             {
-                var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken:cancellationToken));
+                var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken: cancellationToken));
                 await Task.WhenAll(abandonTasks);
                 totalSkipped += toAbandon.Count;
             }

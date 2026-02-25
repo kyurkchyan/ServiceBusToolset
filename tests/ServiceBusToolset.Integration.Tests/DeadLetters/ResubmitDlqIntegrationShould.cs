@@ -82,7 +82,7 @@ public class ResubmitDlqIntegrationShould(ServiceBusEmulatorFixture fixture)
         var result = await sender.Send(new ResubmitDlqMessagesCommand("ignored-by-emulator",
                                                                       target,
                                                                       targetQueue,
-                                                                      CategoryFilter:categoryFilter),
+                                                                      CategoryFilter: categoryFilter),
                                        TestContext.Current.CancellationToken);
 
         // Assert

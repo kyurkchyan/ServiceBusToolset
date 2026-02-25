@@ -104,7 +104,7 @@ public sealed class PurgeDlqMessagesCommandHandler(IServiceBusClientFactory clie
 
             var tasks = new List<Task>();
             tasks.AddRange(toComplete.Select(m => receiver.CompleteMessageAsync(m, cancellationToken)));
-            tasks.AddRange(toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken:cancellationToken)));
+            tasks.AddRange(toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken: cancellationToken)));
             await Task.WhenAll(tasks);
 
             if (toComplete.Count > 0)

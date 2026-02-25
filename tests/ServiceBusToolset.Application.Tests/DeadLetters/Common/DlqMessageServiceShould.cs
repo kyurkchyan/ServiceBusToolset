@@ -17,7 +17,7 @@ public class DlqMessageServiceShould
         // Arrange
         var mockFactory = MockServiceBusClientFactory.Create();
         var runtimeProperties = ServiceBusModelFactory.QueueRuntimeProperties("test-queue",
-                                                                              deadLetterMessageCount:42);
+                                                                              deadLetterMessageCount: 42);
 
         mockFactory.AdminClient.GetQueueRuntimePropertiesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
                    .Returns(Response.FromValue(runtimeProperties, Substitute.For<Response>()));
@@ -40,7 +40,7 @@ public class DlqMessageServiceShould
         var mockFactory = MockServiceBusClientFactory.Create();
         var runtimeProperties = ServiceBusModelFactory.SubscriptionRuntimeProperties("test-topic",
                                                                                      "test-subscription",
-                                                                                     deadLetterMessageCount:15);
+                                                                                     deadLetterMessageCount: 15);
 
         mockFactory.AdminClient.GetSubscriptionRuntimePropertiesAsync(Arg.Any<string>(),
                                                                       Arg.Any<string>(),

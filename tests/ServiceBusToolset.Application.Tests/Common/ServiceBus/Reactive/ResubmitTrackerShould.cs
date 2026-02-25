@@ -56,7 +56,7 @@ public class ResubmitTrackerShould
         for (var i = 0; i < 100; i++)
         {
             var id = $"msg-{i}";
-            tasks.Add(Task.Run(() => tracker.MarkResubmitted(id)));
+            tasks.Add(Task.Run(() => tracker.MarkResubmitted(id), TestContext.Current.CancellationToken));
         }
 
         await Task.WhenAll(tasks);

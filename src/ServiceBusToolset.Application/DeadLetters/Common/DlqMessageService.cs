@@ -43,8 +43,8 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
         await using var receiver = ReceiverFactory.CreateDlqReceiver(client, target);
         return await MessageOperations.CountWithTimeFilterAsync(receiver,
                                                                 beforeTime,
-                                                                progress:progress,
-                                                                cancellationToken:cancellationToken);
+                                                                progress: progress,
+                                                                cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -58,8 +58,8 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
     {
         await using var receiver = ReceiverFactory.CreateDlqReceiver(client, target);
         return await MessageOperations.PeekAllAsync(receiver,
-                                                    progress:progress,
-                                                    cancellationToken:cancellationToken);
+                                                    progress: progress,
+                                                    cancellationToken: cancellationToken);
     }
 
     /// <summary>

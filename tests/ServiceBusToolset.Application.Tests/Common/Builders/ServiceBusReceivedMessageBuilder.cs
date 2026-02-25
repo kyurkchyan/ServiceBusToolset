@@ -183,9 +183,12 @@ public class ServiceBusReceivedMessageBuilder
     public ServiceBusReceivedMessage Build()
     {
         // Create AMQP message with dead letter properties in message annotations
-        var amqpMessage = new AmqpAnnotatedMessage(AmqpMessageBody.FromData([_body.ToMemory()])) { Properties = {
+        var amqpMessage = new AmqpAnnotatedMessage(AmqpMessageBody.FromData([_body.ToMemory()]))
+        {
+            Properties = {
             // Set basic properties
-            MessageId = new AmqpMessageId(_messageId) } };
+            MessageId = new AmqpMessageId(_messageId) }
+        };
 
         if (_correlationId != null)
         {

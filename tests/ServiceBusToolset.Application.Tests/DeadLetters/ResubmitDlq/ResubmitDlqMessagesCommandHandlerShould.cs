@@ -217,7 +217,7 @@ public class ResubmitDlqMessagesCommandHandlerShould
         var command = new ResubmitDlqMessagesCommand("test.servicebus.windows.net",
                                                      EntityTargetBuilder.Queue("source-queue"),
                                                      "target-queue",
-                                                     CategoryFilter:categoryFilter);
+                                                     CategoryFilter: categoryFilter);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -310,7 +310,7 @@ public class ResubmitDlqMessagesCommandHandlerShould
         var command = new ResubmitDlqMessagesCommand("test.servicebus.windows.net",
                                                      EntityTargetBuilder.Queue("source-queue"),
                                                      "target-queue",
-                                                     Progress:progress);
+                                                     Progress: progress);
 
         // Act
         await _handler.Handle(command, CancellationToken.None);

@@ -41,7 +41,7 @@ public class PurgeDlqIntegrationShould(ServiceBusEmulatorFixture fixture)
         await using var client = new ServiceBusClient(ConnectionString);
         await using var receiver = client.CreateReceiver(queue,
                                                          new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter });
-        var remaining = await receiver.PeekMessageAsync(cancellationToken:TestContext.Current.CancellationToken);
+        var remaining = await receiver.PeekMessageAsync(cancellationToken: TestContext.Current.CancellationToken);
         remaining.ShouldBeNull();
     }
 
@@ -89,7 +89,7 @@ public class PurgeDlqIntegrationShould(ServiceBusEmulatorFixture fixture)
         await using var client = new ServiceBusClient(ConnectionString);
         await using var receiver = client.CreateReceiver(queue,
                                                          new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter });
-        var remaining = await receiver.PeekMessagesAsync(10, cancellationToken:TestContext.Current.CancellationToken);
+        var remaining = await receiver.PeekMessagesAsync(10, cancellationToken: TestContext.Current.CancellationToken);
         remaining.Count.ShouldBe(2);
         remaining.ShouldAllBe(m => m.Subject == "PaymentError");
     }

@@ -84,7 +84,7 @@ public class DumpDlqIntegrationShould(ServiceBusEmulatorFixture fixture)
         var result = await sender.Send(new DumpDlqMessagesCommand("ignored-by-emulator",
                                                                   target,
                                                                   outputPath,
-                                                                  CategoryFilter:categoryFilter),
+                                                                  CategoryFilter: categoryFilter),
                                        TestContext.Current.CancellationToken);
 
         // Assert

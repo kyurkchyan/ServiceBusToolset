@@ -111,7 +111,7 @@ public class PurgeDlqMessagesCommandHandlerShould
 
         var command = new PurgeDlqMessagesCommand("test.servicebus.windows.net",
                                                   EntityTargetBuilder.Queue(),
-                                                  CategoryFilter:categoryFilter);
+                                                  CategoryFilter: categoryFilter);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -212,7 +212,7 @@ public class PurgeDlqMessagesCommandHandlerShould
 
         var command = new PurgeDlqMessagesCommand("test.servicebus.windows.net",
                                                   EntityTargetBuilder.Queue(),
-                                                  Progress:progress);
+                                                  Progress: progress);
 
         // Act
         await _handler.Handle(command, CancellationToken.None);

@@ -89,11 +89,11 @@ public class DumpFromCacheCommandHandlerShould
             var command = new DumpFromCacheCommand(messages, outputPath);
 
             // Act
-            await _handler.Handle(command, CancellationToken.None);
+            await _handler.Handle(command, TestContext.Current.CancellationToken);
 
             // Assert
             File.Exists(outputPath).ShouldBeTrue();
-            var content = await File.ReadAllTextAsync(outputPath);
+            var content = await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken);
             content.ShouldContain("msg-1");
             content.ShouldContain("OrderProcessor");
             content.ShouldContain("MaxDeliveryCountExceeded");

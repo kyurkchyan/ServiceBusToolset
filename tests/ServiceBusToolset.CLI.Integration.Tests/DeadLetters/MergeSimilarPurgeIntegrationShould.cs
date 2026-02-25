@@ -78,7 +78,7 @@ public class MergeSimilarPurgeIntegrationShould(ServiceBusEmulatorFixture fixtur
         await using var client = new ServiceBusClient(ConnectionString);
         await using var receiver = client.CreateReceiver(queue,
                                                          new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter });
-        var remaining = await receiver.PeekMessagesAsync(10, cancellationToken:TestContext.Current.CancellationToken);
+        var remaining = await receiver.PeekMessagesAsync(10, cancellationToken: TestContext.Current.CancellationToken);
         remaining.Count.ShouldBe(3);
         remaining.ShouldAllBe(m => m.Subject!.Contains("Error processing"));
     }
@@ -147,7 +147,7 @@ public class MergeSimilarPurgeIntegrationShould(ServiceBusEmulatorFixture fixtur
         await using var client = new ServiceBusClient(ConnectionString);
         await using var receiver = client.CreateReceiver(queue,
                                                          new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter });
-        var remaining = await receiver.PeekMessageAsync(cancellationToken:TestContext.Current.CancellationToken);
+        var remaining = await receiver.PeekMessageAsync(cancellationToken: TestContext.Current.CancellationToken);
         remaining.ShouldBeNull();
     }
 }

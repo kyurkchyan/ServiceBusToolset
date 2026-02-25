@@ -36,7 +36,7 @@ public sealed class StreamDlqCommandHandler(IServiceBusClientFactory clientFacto
                                                                  command.Target,
                                                                  cache,
                                                                  session,
-                                                                 cancellationToken:linkedCts.Token);
+                                                                 cancellationToken: linkedCts.Token);
                      },
                      cancellationToken);
 

@@ -27,7 +27,7 @@ public class CountDlqMessagesHandlerShould
     {
         // Arrange
         var runtimeProperties = ServiceBusModelFactory.QueueRuntimeProperties("test-queue",
-                                                                              deadLetterMessageCount:42);
+                                                                              deadLetterMessageCount: 42);
 
         _mockFactory.AdminClient.GetQueueRuntimePropertiesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
                     .Returns(Response.FromValue(runtimeProperties, Substitute.For<Response>()));
@@ -89,7 +89,7 @@ public class CountDlqMessagesHandlerShould
     {
         // Arrange
         var runtimeProperties = ServiceBusModelFactory.QueueRuntimeProperties("test-queue",
-                                                                              deadLetterMessageCount:0);
+                                                                              deadLetterMessageCount: 0);
 
         _mockFactory.AdminClient.GetQueueRuntimePropertiesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
                     .Returns(Response.FromValue(runtimeProperties, Substitute.For<Response>()));
@@ -112,7 +112,7 @@ public class CountDlqMessagesHandlerShould
         // Arrange
         var runtimeProperties = ServiceBusModelFactory.SubscriptionRuntimeProperties("test-topic",
                                                                                      "test-subscription",
-                                                                                     deadLetterMessageCount:25);
+                                                                                     deadLetterMessageCount: 25);
 
         _mockFactory.AdminClient.GetSubscriptionRuntimePropertiesAsync(Arg.Any<string>(),
                                                                        Arg.Any<string>(),

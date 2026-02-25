@@ -120,7 +120,7 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
 
             if (toAbandon.Count > 0)
             {
-                var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken:cancellationToken));
+                var abandonTasks = toAbandon.Select(m => receiver.AbandonMessageAsync(m, cancellationToken: cancellationToken));
                 await Task.WhenAll(abandonTasks);
                 foreach (var m in toAbandon)
                 {

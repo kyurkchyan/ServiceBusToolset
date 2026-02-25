@@ -133,7 +133,7 @@ public abstract class BaseServiceBusIntegrationTest : IAsyncDisposable
 
             await using (receiver.ConfigureAwait(false))
             {
-                var messages = await receiver.PeekMessagesAsync(expectedCount, cancellationToken:cancellationToken);
+                var messages = await receiver.PeekMessagesAsync(expectedCount, cancellationToken: cancellationToken);
                 if (messages.Count >= expectedCount)
                 {
                     return;

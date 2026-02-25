@@ -78,7 +78,7 @@ public class MergeSimilarDumpIntegrationShould(ServiceBusEmulatorFixture fixture
         mockOutput.Received().Success(Arg.Is<string>(s => s.Contains("5")));
         File.Exists(outputPath).ShouldBeTrue();
 
-        var content = await File.ReadAllTextAsync(outputPath);
+        var content = await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken);
         content.ShouldContain("Timeout");
     }
 
@@ -146,7 +146,7 @@ public class MergeSimilarDumpIntegrationShould(ServiceBusEmulatorFixture fixture
         mockOutput.Received().Success(Arg.Is<string>(s => s.Contains("8")));
         File.Exists(outputPath).ShouldBeTrue();
 
-        var content = await File.ReadAllTextAsync(outputPath);
+        var content = await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken);
         content.ShouldContain("Timeout");
         content.ShouldContain("Error processing");
     }

@@ -24,8 +24,8 @@ public sealed class DiagnoseDlqCommandHandler(IServiceBusClientFactory clientFac
         // Peek messages
         var messages = await MessageOperations.PeekAsync(receiver,
                                                          command.MaxMessages,
-                                                         progress:command.Progress,
-                                                         cancellationToken:cancellationToken);
+                                                         progress: command.Progress,
+                                                         cancellationToken: cancellationToken);
 
         // Apply time filter
         var filteredMessages = MessageFilters.FilterByEnqueueTime(messages, command.BeforeTime).ToList();

@@ -117,10 +117,10 @@ public class PurgeFromCacheCommandHandlerShould
                                                 progress);
 
         // Act
-        await _handler.Handle(command, CancellationToken.None);
+        await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Allow Progress<T> callback to fire via thread pool
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         // Assert
         progressReports.ShouldNotBeEmpty();

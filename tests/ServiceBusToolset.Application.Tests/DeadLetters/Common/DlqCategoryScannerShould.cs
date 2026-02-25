@@ -127,7 +127,7 @@ public class DlqCategoryScannerShould
                                                 EntityTargetBuilder.Queue(),
                                                 cache,
                                                 session,
-                                                cancellationToken:CancellationToken.None);
+                                                cancellationToken: CancellationToken.None);
 
         // Assert
         cache.Count.ShouldBe(2);
@@ -204,7 +204,7 @@ public class DlqCategoryScannerShould
                                                 EntityTargetBuilder.Queue(),
                                                 cache,
                                                 session,
-                                                cancellationToken:CancellationToken.None);
+                                                cancellationToken: CancellationToken.None);
 
         // Assert
         cache.Count.ShouldBe(2);
@@ -228,7 +228,7 @@ public class DlqCategoryScannerShould
                                                 EntityTargetBuilder.Queue(),
                                                 cache,
                                                 session,
-                                                cancellationToken:CancellationToken.None);
+                                                cancellationToken: CancellationToken.None);
 
         // Assert
         session.ScanCompletion.Task.IsCompleted.ShouldBeTrue();
@@ -258,7 +258,7 @@ public class DlqCategoryScannerShould
                                                 EntityTargetBuilder.Queue(),
                                                 cache,
                                                 session,
-                                                cancellationToken:CancellationToken.None);
+                                                cancellationToken: CancellationToken.None);
 
         // Assert
         session.Error.ShouldNotBeNull();
