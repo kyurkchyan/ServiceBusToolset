@@ -1,5 +1,5 @@
 name: Setup .NET & Build
-description: Checkout, setup .NET SDK, cache NuGet packages, restore dependencies, and build in Release mode.
+description: Setup .NET SDK, cache NuGet packages, restore dependencies, and build in Release mode. Requires actions/checkout to run first.
 
 inputs:
   dotnet-version:
@@ -10,9 +10,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Checkout
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
     - name: Setup .NET
       uses: actions/setup-dotnet@baa11fbfe1d6520db94683bd5c7a3818018e4309 # v5.1.0
       with:
