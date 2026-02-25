@@ -1,5 +1,10 @@
 # ServiceBusToolset
 
+[![Build](https://github.com/kyurkchyan/ServiceBusToolset/actions/workflows/alpha-release.yml/badge.svg?branch=master)](https://github.com/kyurkchyan/ServiceBusToolset/actions/workflows/alpha-release.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/kyurkchyan/COVERAGE_GIST_ID/raw/coverage-badge.json)](https://github.com/kyurkchyan/ServiceBusToolset/actions/workflows/alpha-release.yml)
+[![NuGet](https://img.shields.io/nuget/v/ServiceBusToolset)](https://www.nuget.org/packages/ServiceBusToolset)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A command-line tool for managing Azure Service Bus.
 
 ## Installation

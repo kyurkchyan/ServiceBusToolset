@@ -72,6 +72,7 @@ jobs:
           path: ./test-results/**/*.trx
 
       - name: Generate coverage report
+        id: generate-coverage-report
         if: success()
         uses: danielpalme/ReportGenerator-GitHub-Action@ee0ae774f6d3afedcbd1683c1ab21b83670bdf8e # 5.5.1
         with:
@@ -82,17 +83,30 @@ jobs:
       - name: Post coverage summary to PR
         if: success()
         uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
+        continue-on-error: true
         with:
           header: coverage
           path: ./coverage-report/SummaryGithub.md
 
       - name: Check coverage threshold
-        if: success()
+        if: always() && steps.generate-coverage-report.outcome == 'success'
         run: |
+          if [ ! -f "./coverage-report/Summary.txt" ]; then
+            echo "::error::Coverage report file not found"
+            exit 1
+          fi
           SUMMARY=$(cat ./coverage-report/Summary.txt)
+          if [ -z "$SUMMARY" ]; then
+            echo "::error::Coverage report is empty"
+            exit 1
+          fi
           echo "$SUMMARY"
-          LINE_COVERAGE=$(echo "$SUMMARY" | grep -i 'Line coverage' | grep -oP '[\d.]+(?=%)')
+          LINE_COVERAGE=$(echo "$SUMMARY" | grep -i 'Line coverage' | grep -oP '[\d.]+(?=%)' || true)
           echo "Line coverage: ${LINE_COVERAGE}%"
+          if [ -z "$LINE_COVERAGE" ]; then
+            echo "::error::Could not parse line coverage from summary report"
+            exit 1
+          fi
           THRESHOLD=60
           if (( $(echo "$LINE_COVERAGE < $THRESHOLD" | bc -l) )); then
             echo "::error::Line coverage ${LINE_COVERAGE}% is below the ${THRESHOLD}% threshold"

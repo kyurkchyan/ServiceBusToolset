@@ -50,6 +50,49 @@ jobs:
         run: >
           dotnet test tests/ServiceBusToolset.Application.Tests
           -c Release --no-build
+          --collect:"XPlat Code Coverage"
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      - name: Generate coverage report
+        uses: danielpalme/ReportGenerator-GitHub-Action@ee0ae774f6d3afedcbd1683c1ab21b83670bdf8e # 5.5.1
+        with:
+          reports: ./**/coverage.cobertura.xml
+          targetdir: ./coverage-report
+          reporttypes: TextSummary
+
+      - name: Extract and publish coverage badge
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: |
+          SUMMARY=$(cat ./coverage-report/Summary.txt)
+          LINE_COVERAGE=$(echo "$SUMMARY" | grep -i 'Line coverage' | grep -oP '[\d.]+(?=%)')
+          echo "Line coverage: ${LINE_COVERAGE}%"
+          if [ -z "$LINE_COVERAGE" ]; then
+            echo "::warning::Could not parse line coverage"
+            exit 0
+          fi
+          echo "coverage=${LINE_COVERAGE}" >> $GITHUB_OUTPUT
+          # Determine badge color
+          if (( $(echo "$LINE_COVERAGE >= 80" | bc -l) )); then
+            COLOR="brightgreen"
+          elif (( $(echo "$LINE_COVERAGE >= 60" | bc -l) )); then
+            COLOR="yellowgreen"
+          else
+            COLOR="red"
+          fi
+          echo "color=${COLOR}" >> $GITHUB_OUTPUT
+        id: coverage
+
+      - name: Update coverage badge gist
+        if: steps.coverage.outputs.coverage != '' && env.GIST_TOKEN != ''
+        uses: schneegans/dynamic-badges-action@e9a478b16159b4d31420099ba146cdc50f134483 # v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: ${{ vars.COVERAGE_GIST_ID }}
+          filename: coverage-badge.json
+          label: coverage
+          message: ${{ steps.coverage.outputs.coverage }}%
+          color: ${{ steps.coverage.outputs.color }}
 
   alpha-release:
     runs-on: ubuntu-latest
@@ -73,9 +116,16 @@ jobs:
 
       - name: Generate version
         id: version
+        env:
+          INPUT_BASE_VERSION: ${{ github.event.inputs.base_version }}
         run: |
           # Use input version if provided (workflow_dispatch), otherwise use env default
-          BASE="${{ github.event.inputs.base_version || env.BASE_VERSION }}"
+          BASE="${INPUT_BASE_VERSION:-$BASE_VERSION}"
+          # Validate version matches strict semver pattern
+          if [[ ! "$BASE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid base version '$BASE'. Must match X.Y.Z semver format."
+            exit 1
+          fi
           ALPHA_VERSION="${BASE}-alpha.${GITHUB_RUN_NUMBER}"
           echo "version=$ALPHA_VERSION" >> $GITHUB_OUTPUT
           echo "Generated version: $ALPHA_VERSION"

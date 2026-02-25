@@ -32,11 +32,10 @@ reviews:
       instructions: >
         Review for security best practices: pin action versions, avoid script injection
         via untrusted inputs, ensure secrets are not logged.
-
-tools:
-  actionlint:
-    enabled: true
-  markdownlint:
-    enabled: true
-  yamllint:
-    enabled: true
+  tools:
+    actionlint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    yamllint:
+      enabled: true
