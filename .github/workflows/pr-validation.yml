@@ -114,7 +114,7 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: [self-hosted, macOS]
-    needs: unit-tests
+    needs: authorize
     timeout-minutes: 10
 
     steps:
