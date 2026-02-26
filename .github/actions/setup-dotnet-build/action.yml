@@ -1,5 +1,5 @@
-name: Setup .NET & Build
-description: Setup .NET SDK, cache NuGet packages, restore dependencies, and build in Release mode. Requires actions/checkout to run first.
+name: Setup .NET & Restore
+description: Setup .NET SDK, cache NuGet packages, and restore dependencies. Requires actions/checkout to run first.
 
 inputs:
   dotnet-version:
@@ -24,8 +24,4 @@ runs:
 
     - name: Restore dependencies
       run: dotnet restore
-      shell: bash
-
-    - name: Build
-      run: dotnet build -c Release --no-restore
       shell: bash

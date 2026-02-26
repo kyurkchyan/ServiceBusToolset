@@ -29,8 +29,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Setup .NET & Build
+      - name: Setup .NET & Restore
         uses: ./.github/actions/setup-dotnet-build
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
 
       - name: Run unit tests
         run: >
@@ -88,8 +91,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Setup .NET & Build
+      - name: Setup .NET & Restore
         uses: ./.github/actions/setup-dotnet-build
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
 
       - name: Generate version
         id: version
