@@ -10,6 +10,7 @@ using EntityTarget = ServiceBusToolset.Application.Common.ServiceBus.Models.Enti
 
 namespace ServiceBusToolset.CLI.Integration.Tests.DeadLetters;
 
+[Collection(InteractiveTestCollection.Name)]
 public class MergeSimilarDumpIntegrationShould(ServiceBusEmulatorFixture fixture)
     : BaseIntegrationTest(fixture)
 {

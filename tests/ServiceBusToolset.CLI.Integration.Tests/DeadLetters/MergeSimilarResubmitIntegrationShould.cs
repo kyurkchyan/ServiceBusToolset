@@ -10,6 +10,7 @@ using EntityTarget = ServiceBusToolset.Application.Common.ServiceBus.Models.Enti
 
 namespace ServiceBusToolset.CLI.Integration.Tests.DeadLetters;
 
+[Collection(InteractiveTestCollection.Name)]
 public class MergeSimilarResubmitIntegrationShould(ServiceBusEmulatorFixture fixture)
     : BaseIntegrationTest(fixture)
 {
@@ -26,31 +27,31 @@ public class MergeSimilarResubmitIntegrationShould(ServiceBusEmulatorFixture fix
 
         // Group A: 3 messages with similar subjects
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("alice-body") { Subject = "Error processing user Alice" },
-            "MaxRetries");
+                                     new ServiceBusMessage("alice-body") { Subject = "Error processing user Alice" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("bob-body") { Subject = "Error processing user Bob" },
-            "MaxRetries");
+                                     new ServiceBusMessage("bob-body") { Subject = "Error processing user Bob" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("charlie-body") { Subject = "Error processing user Charlie" },
-            "MaxRetries");
+                                     new ServiceBusMessage("charlie-body") { Subject = "Error processing user Charlie" },
+                                     "MaxRetries");
 
         // Group B: 5 messages with similar subjects
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("order-body") { Subject = "Timeout for service OrderAPI" },
-            "MaxRetries");
+                                     new ServiceBusMessage("order-body") { Subject = "Timeout for service OrderAPI" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("payment-body") { Subject = "Timeout for service PaymentAPI" },
-            "MaxRetries");
+                                     new ServiceBusMessage("payment-body") { Subject = "Timeout for service PaymentAPI" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("inventory-body") { Subject = "Timeout for service InventoryAPI" },
-            "MaxRetries");
+                                     new ServiceBusMessage("inventory-body") { Subject = "Timeout for service InventoryAPI" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("shipping-body") { Subject = "Timeout for service ShippingAPI" },
-            "MaxRetries");
+                                     new ServiceBusMessage("shipping-body") { Subject = "Timeout for service ShippingAPI" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("notification-body") { Subject = "Timeout for service NotificationAPI" },
-            "MaxRetries");
+                                     new ServiceBusMessage("notification-body") { Subject = "Timeout for service NotificationAPI" },
+                                     "MaxRetries");
 
         await WaitForDlqCountAsync(target, 8, TestContext.Current.CancellationToken);
 
@@ -71,7 +72,7 @@ public class MergeSimilarResubmitIntegrationShould(ServiceBusEmulatorFixture fix
         };
 
         // Act
-        var exitCode = await handler.ExecuteAsync(command, verbose: false, TestContext.Current.CancellationToken);
+        var exitCode = await handler.ExecuteAsync(command, false, TestContext.Current.CancellationToken);
 
         // Assert
         exitCode.ShouldBe(0);
@@ -80,8 +81,8 @@ public class MergeSimilarResubmitIntegrationShould(ServiceBusEmulatorFixture fix
         await using var client = new ServiceBusClient(ConnectionString);
         await using var receiver = client.CreateReceiver(targetQueue);
         var received = await receiver.ReceiveMessagesAsync(10,
-            TimeSpan.FromSeconds(5),
-            TestContext.Current.CancellationToken);
+                                                           TimeSpan.FromSeconds(5),
+                                                           TestContext.Current.CancellationToken);
         received.Count.ShouldBe(5);
     }
 
@@ -98,31 +99,31 @@ public class MergeSimilarResubmitIntegrationShould(ServiceBusEmulatorFixture fix
 
         // Group A: 3 messages with similar subjects
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("alice-body") { Subject = "Error processing user Alice" },
-            "MaxRetries");
+                                     new ServiceBusMessage("alice-body") { Subject = "Error processing user Alice" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("bob-body") { Subject = "Error processing user Bob" },
-            "MaxRetries");
+                                     new ServiceBusMessage("bob-body") { Subject = "Error processing user Bob" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("charlie-body") { Subject = "Error processing user Charlie" },
-            "MaxRetries");
+                                     new ServiceBusMessage("charlie-body") { Subject = "Error processing user Charlie" },
+                                     "MaxRetries");
 
         // Group B: 5 messages with similar subjects
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("order-body") { Subject = "Timeout for service OrderAPI" },
-            "MaxRetries");
+                                     new ServiceBusMessage("order-body") { Subject = "Timeout for service OrderAPI" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("payment-body") { Subject = "Timeout for service PaymentAPI" },
-            "MaxRetries");
+                                     new ServiceBusMessage("payment-body") { Subject = "Timeout for service PaymentAPI" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("inventory-body") { Subject = "Timeout for service InventoryAPI" },
-            "MaxRetries");
+                                     new ServiceBusMessage("inventory-body") { Subject = "Timeout for service InventoryAPI" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("shipping-body") { Subject = "Timeout for service ShippingAPI" },
-            "MaxRetries");
+                                     new ServiceBusMessage("shipping-body") { Subject = "Timeout for service ShippingAPI" },
+                                     "MaxRetries");
         await DeadLetterMessageAsync(target,
-            new ServiceBusMessage("notification-body") { Subject = "Timeout for service NotificationAPI" },
-            "MaxRetries");
+                                     new ServiceBusMessage("notification-body") { Subject = "Timeout for service NotificationAPI" },
+                                     "MaxRetries");
 
         await WaitForDlqCountAsync(target, 8, TestContext.Current.CancellationToken);
 
@@ -142,7 +143,7 @@ public class MergeSimilarResubmitIntegrationShould(ServiceBusEmulatorFixture fix
         };
 
         // Act
-        var exitCode = await handler.ExecuteAsync(command, verbose: false, TestContext.Current.CancellationToken);
+        var exitCode = await handler.ExecuteAsync(command, false, TestContext.Current.CancellationToken);
 
         // Assert
         exitCode.ShouldBe(0);
@@ -151,8 +152,8 @@ public class MergeSimilarResubmitIntegrationShould(ServiceBusEmulatorFixture fix
         await using var client = new ServiceBusClient(ConnectionString);
         await using var receiver = client.CreateReceiver(targetQueue);
         var received = await receiver.ReceiveMessagesAsync(20,
-            TimeSpan.FromSeconds(5),
-            TestContext.Current.CancellationToken);
+                                                           TimeSpan.FromSeconds(5),
+                                                           TestContext.Current.CancellationToken);
         received.Count.ShouldBe(8);
     }
 }
