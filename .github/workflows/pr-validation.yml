@@ -41,8 +41,11 @@ jobs:
       - name: Build
         run: dotnet build -c Release --no-restore
 
-      - name: Check formatting
-        run: dotnet format --verify-no-changes --verbosity diagnostic
+      - name: Check formatting (Rider Team Cleanup)
+        run: |
+          dotnet tool install -g JetBrains.ReSharper.GlobalTools
+          jb cleanupcode --profile="Team Cleanup" ServiceBusToolset.slnx
+          git diff --exit-code || (echo "::error::Code doesn't match Team Cleanup profile. Run Rider's Team Cleanup locally." && exit 1)
 
       - name: Check for vulnerable packages
         run: |

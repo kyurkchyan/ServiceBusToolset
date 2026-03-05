@@ -70,7 +70,7 @@ public class MessageOperationsShould
         SetupMultipleBatches(batch1, batch2);
 
         // Act
-        var result = await MessageOperations.PeekAllAsync(_receiver, 100, cancellationToken:TestContext.Current.CancellationToken);
+        var result = await MessageOperations.PeekAllAsync(_receiver, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.Count.ShouldBe(150);
@@ -239,7 +239,6 @@ public class MessageOperationsShould
         // Act
         await MessageOperations.PeekAsync(_receiver,
                                           150,
-                                          100,
                                           cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
