@@ -15,7 +15,7 @@ public sealed class CommandExecutionService(CommandLineArguments cliArguments,
         try
         {
             var result = Parser.Default.ParseArguments(cliArguments.Args,
-                typeof(GenerateDlqCliCommand));
+                                                       typeof(GenerateDlqCliCommand));
 
             await result
                   .WithCommandAsync<GenerateDlqCliCommand>(cmd => HandleCommandAsync(cmd, stoppingToken))

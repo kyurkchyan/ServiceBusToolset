@@ -13,6 +13,7 @@ dotnet run --project src/ServiceBusToolset.CLI -- --help
 ## Architecture
 
 .NET 10 CLI tool for Azure Service Bus operations using:
+
 - **Vertical Slice Architecture** - Features organized by business capability
 - **Mediator Pattern** (martinothamar/Mediator) - CQRS for Application layer
 - **Ardalis.Result** - Structured return types
@@ -47,6 +48,7 @@ DeadLetters/DumpDlq/
 ```
 
 Cross-cutting concerns go in `Common/` folders at the appropriate level:
+
 - `Common/ServiceBus/` - Generic Service Bus utilities (any feature)
 - `DeadLetters/Common/` - DLQ utilities (shared by DumpDlq, PurgeDlq, etc.)
 
@@ -61,21 +63,23 @@ Cross-cutting concerns go in `Common/` folders at the appropriate level:
    ```
 
 2. **Create CLI handler** in `CLI/Commands/`:
-   - Inject `ISender` for Mediator
-   - Map CLI options to Application commands
-   - Handle `Result<T>` responses with `BaseCommandHandler`
+    - Inject `ISender` for Mediator
+    - Map CLI options to Application commands
+    - Handle `Result<T>` responses with `BaseCommandHandler`
 
 3. **Register in Program.cs**:
-   - Add options type to `ParseArguments<...>()`
-   - Add `MapResult` handler
+    - Add options type to `ParseArguments<...>()`
+    - Add `MapResult` handler
 
 ### Key Services
 
 **Application Layer:**
+
 - `IServiceBusClientFactory` - Creates Service Bus clients
 - `DlqMessageService` - DLQ peek/filter operations
 
 **CLI Layer:**
+
 - `IConsoleOutput` - Console output abstraction
 - `BaseCommandHandler` - Exception handling, result mapping
 

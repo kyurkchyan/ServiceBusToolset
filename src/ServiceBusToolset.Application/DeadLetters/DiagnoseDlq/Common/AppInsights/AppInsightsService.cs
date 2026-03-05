@@ -99,7 +99,7 @@ public class AppInsightsService : IAppInsightsService
             var response = await _logsClient!.QueryResourceAsync(_resourceId,
                                                                  query,
                                                                  timeRange,
-                                                                 cancellationToken: cancellationToken);
+                                                                 cancellationToken:cancellationToken);
 
             if (response.Value.Status == LogsQueryResultStatus.Success)
             {
@@ -150,7 +150,7 @@ public class AppInsightsService : IAppInsightsService
             var response = await _logsClient!.QueryResourceAsync(_resourceId,
                                                                  query,
                                                                  timeRange,
-                                                                 cancellationToken: cancellationToken);
+                                                                 cancellationToken:cancellationToken);
 
             if (response.Value.Status == LogsQueryResultStatus.Success)
             {
@@ -198,7 +198,7 @@ public class AppInsightsService : IAppInsightsService
             var response = await _logsClient!.QueryResourceAsync(_resourceId,
                                                                  query,
                                                                  timeRange,
-                                                                 cancellationToken: cancellationToken);
+                                                                 cancellationToken:cancellationToken);
 
             if (response.Value.Status == LogsQueryResultStatus.Success)
             {

@@ -4,7 +4,6 @@ using Azure.Messaging.ServiceBus;
 using Azure.Messaging.ServiceBus.Administration;
 using NSubstitute;
 using ServiceBusToolset.Application.Queues.MonitorQueues;
-using ServiceBusToolset.Application.Queues.MonitorQueues.Models;
 using ServiceBusToolset.Application.Tests.Common.Mocks;
 using Shouldly;
 using Xunit;
@@ -49,7 +48,10 @@ public class MonitorQueuesCommandHandlerShould
     public async Task EmitStatistics_WhenQueuesExist()
     {
         // Arrange
-        SetupQueues(CreateQueueRuntimeProperties("queue-1", 10, 5, 2),
+        SetupQueues(CreateQueueRuntimeProperties("queue-1",
+                                                 10,
+                                                 5,
+                                                 2),
                     CreateQueueRuntimeProperties("queue-2", 20, 3));
 
         using var cts = new CancellationTokenSource();
@@ -147,7 +149,10 @@ public class MonitorQueuesCommandHandlerShould
     public async Task IncludeMessageCounts_InStatistics()
     {
         // Arrange
-        SetupQueues(CreateQueueRuntimeProperties("test-queue", 100, 50, 25));
+        SetupQueues(CreateQueueRuntimeProperties("test-queue",
+                                                 100,
+                                                 50,
+                                                 25));
 
         using var cts = new CancellationTokenSource();
 
@@ -182,8 +187,8 @@ public class MonitorQueuesCommandHandlerShould
         long scheduledCount = 0) =>
         ServiceBusModelFactory.QueueRuntimeProperties(name,
                                                       activeMessageCount,
-                                                      deadLetterMessageCount: deadLetterCount,
-                                                      scheduledMessageCount: scheduledCount);
+                                                      deadLetterMessageCount:deadLetterCount,
+                                                      scheduledMessageCount:scheduledCount);
 
     private static AsyncPageable<QueueRuntimeProperties> CreateAsyncPageable(QueueRuntimeProperties[] items)
     {

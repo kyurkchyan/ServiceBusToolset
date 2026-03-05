@@ -117,7 +117,7 @@ public class DumpDlqMessagesCommandHandlerShould
         var command = new DumpDlqMessagesCommand("test.servicebus.windows.net",
                                                  EntityTargetBuilder.Queue(),
                                                  _testOutputPath,
-                                                 CategoryFilter: categoryFilter);
+                                                 CategoryFilter:categoryFilter);
 
         // Act
         var result = await _handler.Handle(command, TestContext.Current.CancellationToken);

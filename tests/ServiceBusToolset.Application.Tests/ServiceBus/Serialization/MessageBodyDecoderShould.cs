@@ -120,7 +120,13 @@ public class MessageBodyDecoderShould
     public void ReturnBase64_WhenBodyContainsInvalidUtf8()
     {
         // Create bytes that include invalid UTF-8 replacement character trigger
-        var invalidUtf8 = new byte[] { 0xFF, 0xFE, 0x00, 0x01 };
+        var invalidUtf8 = new byte[]
+        {
+            0xFF,
+            0xFE,
+            0x00,
+            0x01
+        };
         var message = ServiceBusReceivedMessageBuilder.Create()
                                                       .WithBody(BinaryData.FromBytes(invalidUtf8))
                                                       .Build();

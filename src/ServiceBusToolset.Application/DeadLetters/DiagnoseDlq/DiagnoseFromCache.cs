@@ -23,7 +23,10 @@ public sealed class DiagnoseFromCacheCommandHandler(IAppInsightsService appInsig
 
         if (messages.Count == 0)
         {
-            return Result.Success(new DiagnoseDlqResult([], 0, 0, 0));
+            return Result.Success(new DiagnoseDlqResult([],
+                                                        0,
+                                                        0,
+                                                        0));
         }
 
         var (results, skipped) = await MessageDiagnostics.DiagnoseMessagesAsync(appInsightsService,

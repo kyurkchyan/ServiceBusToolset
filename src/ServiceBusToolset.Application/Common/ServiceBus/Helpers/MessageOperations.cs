@@ -33,7 +33,7 @@ public static class MessageOperations
 
         while (!cancellationToken.IsCancellationRequested && emptyBatches < emptyBatchThreshold)
         {
-            var messages = await receiver.PeekMessagesAsync(batchSize, cancellationToken: cancellationToken);
+            var messages = await receiver.PeekMessagesAsync(batchSize, cancellationToken:cancellationToken);
 
             if (messages.Count == 0)
             {
@@ -71,7 +71,7 @@ public static class MessageOperations
             var remaining = maxMessages - allMessages.Count;
             var currentBatchSize = Math.Min(batchSize, remaining);
 
-            var messages = await receiver.PeekMessagesAsync(currentBatchSize, cancellationToken: cancellationToken);
+            var messages = await receiver.PeekMessagesAsync(currentBatchSize, cancellationToken:cancellationToken);
 
             if (messages.Count == 0)
             {
@@ -105,7 +105,7 @@ public static class MessageOperations
 
         while (!cancellationToken.IsCancellationRequested && emptyBatches < emptyBatchThreshold)
         {
-            var messages = await receiver.PeekMessagesAsync(batchSize, cancellationToken: cancellationToken);
+            var messages = await receiver.PeekMessagesAsync(batchSize, cancellationToken:cancellationToken);
 
             if (messages.Count == 0)
             {

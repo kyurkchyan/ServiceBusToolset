@@ -125,24 +125,26 @@ public sealed class TelemetryGenerator : IDisposable
     private JsonObject BuildException(string traceId, DeadLetterSpec spec)
     {
         var (typeName, message) = ExceptionsBySubject.GetValueOrDefault(spec.Subject,
-            ("System.Exception", $"Unhandled error in {spec.Subject}"));
+                                                                        ("System.Exception", $"Unhandled error in {spec.Subject}"));
 
-        return BuildEnvelope("Microsoft.ApplicationInsights.Exception", traceId, spec.Subject,
-            DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 30)),
-            "ExceptionData",
-            new JsonObject
-            {
-                ["ver"] = 2,
-                ["exceptions"] = new JsonArray
-                {
-                    new JsonObject
-                    {
-                        ["typeName"] = typeName,
-                        ["message"] = message,
-                        ["hasFullStack"] = false
-                    }
-                }
-            });
+        return BuildEnvelope("Microsoft.ApplicationInsights.Exception",
+                             traceId,
+                             spec.Subject,
+                             DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 30)),
+                             "ExceptionData",
+                             new JsonObject
+                             {
+                                 ["ver"] = 2,
+                                 ["exceptions"] = new JsonArray
+                                 {
+                                     new JsonObject
+                                     {
+                                         ["typeName"] = typeName,
+                                         ["message"] = message,
+                                         ["hasFullStack"] = false
+                                     }
+                                 }
+                             });
     }
 
     private List<JsonObject> BuildTraces(string traceId, DeadLetterSpec spec)
@@ -156,15 +158,17 @@ public sealed class TelemetryGenerator : IDisposable
             var message = string.Format(template, _random.Next(1, 20), _random.Next(500, 5000));
             var severityLevel = _random.Next(2, 5); // Warning, Error, Critical
 
-            result.Add(BuildEnvelope("Microsoft.ApplicationInsights.Message", traceId, spec.Subject,
-                DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 60)),
-                "MessageData",
-                new JsonObject
-                {
-                    ["ver"] = 2,
-                    ["message"] = message,
-                    ["severityLevel"] = severityLevel
-                }));
+            result.Add(BuildEnvelope("Microsoft.ApplicationInsights.Message",
+                                     traceId,
+                                     spec.Subject,
+                                     DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 60)),
+                                     "MessageData",
+                                     new JsonObject
+                                     {
+                                         ["ver"] = 2,
+                                         ["message"] = message,
+                                         ["severityLevel"] = severityLevel
+                                     }));
         }
 
         return result;
@@ -181,28 +185,29 @@ public sealed class TelemetryGenerator : IDisposable
             var durationMs = _random.Next(100, 30000);
             var duration = TimeSpan.FromMilliseconds(durationMs);
 
-            result.Add(BuildEnvelope("Microsoft.ApplicationInsights.RemoteDependency", traceId, spec.Subject,
-                DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 45)),
-                "RemoteDependencyData",
-                new JsonObject
-                {
-                    ["ver"] = 2,
-                    ["name"] = $"{spec.Subject} dependency call",
-                    ["type"] = template.Type,
-                    ["target"] = template.Target,
-                    ["resultCode"] = template.ResultCode,
-                    ["success"] = false,
-                    ["duration"] = duration.ToString()
-                }));
+            result.Add(BuildEnvelope("Microsoft.ApplicationInsights.RemoteDependency",
+                                     traceId,
+                                     spec.Subject,
+                                     DateTimeOffset.UtcNow.AddSeconds(-_random.Next(5, 45)),
+                                     "RemoteDependencyData",
+                                     new JsonObject
+                                     {
+                                         ["ver"] = 2,
+                                         ["name"] = $"{spec.Subject} dependency call",
+                                         ["type"] = template.Type,
+                                         ["target"] = template.Target,
+                                         ["resultCode"] = template.ResultCode,
+                                         ["success"] = false,
+                                         ["duration"] = duration.ToString()
+                                     }));
         }
 
         return result;
     }
 
     private JsonObject BuildEnvelope(string name, string traceId, string operationName,
-                                      DateTimeOffset timestamp, string baseType, JsonObject baseData)
-    {
-        return new JsonObject
+                                     DateTimeOffset timestamp, string baseType, JsonObject baseData) =>
+        new()
         {
             ["name"] = name,
             ["time"] = timestamp.UtcDateTime.ToString("O"),
@@ -218,7 +223,6 @@ public sealed class TelemetryGenerator : IDisposable
                 ["baseData"] = baseData
             }
         };
-    }
 
     private static (string InstrumentationKey, string IngestionEndpoint) ParseConnectionString(string connectionString)
     {
@@ -228,19 +232,28 @@ public sealed class TelemetryGenerator : IDisposable
         foreach (var part in connectionString.Split(';'))
         {
             var kvp = part.Split('=', 2);
-            if (kvp.Length != 2) continue;
+            if (kvp.Length != 2)
+            {
+                continue;
+            }
 
             var key = kvp[0].Trim();
             var value = kvp[1].Trim();
 
             if (key.Equals("InstrumentationKey", StringComparison.OrdinalIgnoreCase))
+            {
                 instrumentationKey = value;
+            }
             else if (key.Equals("IngestionEndpoint", StringComparison.OrdinalIgnoreCase))
+            {
                 ingestionEndpoint = value;
+            }
         }
 
         if (string.IsNullOrEmpty(instrumentationKey))
+        {
             throw new ArgumentException("Connection string must contain InstrumentationKey.");
+        }
 
         // Default to global endpoint if not specified
         ingestionEndpoint ??= "https://dc.services.visualstudio.com";

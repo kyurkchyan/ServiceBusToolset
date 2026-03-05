@@ -24,13 +24,13 @@ public class PurgeFromCacheCommandHandlerShould
     {
         // Arrange
         var msg1 = ServiceBusReceivedMessageBuilder.Create()
-                                                    .WithMessageId("msg-1")
-                                                    .WithSequenceNumber(1)
-                                                    .Build();
+                                                   .WithMessageId("msg-1")
+                                                   .WithSequenceNumber(1)
+                                                   .Build();
         var msg2 = ServiceBusReceivedMessageBuilder.Create()
-                                                    .WithMessageId("msg-2")
-                                                    .WithSequenceNumber(2)
-                                                    .Build();
+                                                   .WithMessageId("msg-2")
+                                                   .WithSequenceNumber(2)
+                                                   .Build();
 
         _mockFactory.WithMessagesToReturn(msg1, msg2);
 
@@ -44,9 +44,8 @@ public class PurgeFromCacheCommandHandlerShould
         // Assert
         result.IsSuccess.ShouldBeTrue();
         result.Value.PurgedCount.ShouldBe(1);
-        await _mockFactory.Receiver.Received(1).CompleteMessageAsync(
-            Arg.Is<ServiceBusReceivedMessage>(m => m.MessageId == "msg-1"),
-            Arg.Any<CancellationToken>());
+        await _mockFactory.Receiver.Received(1).CompleteMessageAsync(Arg.Is<ServiceBusReceivedMessage>(m => m.MessageId == "msg-1"),
+                                                                     Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -54,13 +53,13 @@ public class PurgeFromCacheCommandHandlerShould
     {
         // Arrange
         var msg1 = ServiceBusReceivedMessageBuilder.Create()
-                                                    .WithMessageId("msg-1")
-                                                    .WithSequenceNumber(1)
-                                                    .Build();
+                                                   .WithMessageId("msg-1")
+                                                   .WithSequenceNumber(1)
+                                                   .Build();
         var msg2 = ServiceBusReceivedMessageBuilder.Create()
-                                                    .WithMessageId("msg-2")
-                                                    .WithSequenceNumber(2)
-                                                    .Build();
+                                                   .WithMessageId("msg-2")
+                                                   .WithSequenceNumber(2)
+                                                   .Build();
 
         _mockFactory.WithMessagesToReturn(msg1, msg2);
 
@@ -72,10 +71,9 @@ public class PurgeFromCacheCommandHandlerShould
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        await _mockFactory.Receiver.Received(1).AbandonMessageAsync(
-            Arg.Is<ServiceBusReceivedMessage>(m => m.MessageId == "msg-2"),
-            Arg.Any<IDictionary<string, object>?>(),
-            Arg.Any<CancellationToken>());
+        await _mockFactory.Receiver.Received(1).AbandonMessageAsync(Arg.Is<ServiceBusReceivedMessage>(m => m.MessageId == "msg-2"),
+                                                                    Arg.Any<IDictionary<string, object>?>(),
+                                                                    Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -105,9 +103,9 @@ public class PurgeFromCacheCommandHandlerShould
         var progress = new Progress<(int Purged, int Skipped)>(p => progressReports.Add(p));
 
         var msg1 = ServiceBusReceivedMessageBuilder.Create()
-                                                    .WithMessageId("msg-1")
-                                                    .WithSequenceNumber(1)
-                                                    .Build();
+                                                   .WithMessageId("msg-1")
+                                                   .WithSequenceNumber(1)
+                                                   .Build();
 
         _mockFactory.WithMessagesToReturn(msg1);
 

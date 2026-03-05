@@ -79,7 +79,7 @@ public static class DlqCategoryScanner
                 else
                 {
                     messages = await receiver.PeekMessagesAsync(MessageOperations.DefaultBatchSize,
-                                                                cancellationToken: cancellationToken);
+                                                                cancellationToken:cancellationToken);
                 }
 
                 if (messages.Count == 0)

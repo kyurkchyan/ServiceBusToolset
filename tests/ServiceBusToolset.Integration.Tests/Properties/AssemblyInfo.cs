@@ -1,3 +1,3 @@
 using Xunit;
 
-[assembly: AssemblyFixture(typeof(ServiceBusEmulatorFixture))]
+[assembly:AssemblyFixture(typeof(ServiceBusEmulatorFixture))]
