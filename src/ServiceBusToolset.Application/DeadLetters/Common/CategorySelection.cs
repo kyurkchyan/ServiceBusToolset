@@ -7,11 +7,10 @@ namespace ServiceBusToolset.Application.DeadLetters.Common;
 /// <param name="SelectedKeys">The set of category keys that were selected</param>
 /// <param name="SelectedCount">The total number of messages in selected categories</param>
 /// <param name="SelectedCategoryCount">The number of categories selected</param>
-public sealed record CategorySelection(
-    IReadOnlyList<DlqCategory> Categories,
-    HashSet<DlqCategoryKey> SelectedKeys,
-    int SelectedCount,
-    int SelectedCategoryCount)
+public sealed record CategorySelection(IReadOnlyList<DlqCategory> Categories,
+                                       HashSet<DlqCategoryKey> SelectedKeys,
+                                       int SelectedCount,
+                                       int SelectedCategoryCount)
 {
     /// <summary>
     /// Builds a CategorySelection from categories and selected indices.
@@ -33,6 +32,9 @@ public sealed record CategorySelection(
             totalCount += cat.Count;
         }
 
-        return new CategorySelection(categories, selectedKeys, totalCount, selectedIndices.Count);
+        return new CategorySelection(categories,
+                                     selectedKeys,
+                                     totalCount,
+                                     selectedIndices.Count);
     }
 }

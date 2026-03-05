@@ -18,7 +18,7 @@ public static class DependencyInjectionExtensions
 
     public static IServiceCollection AddCommandHandlers(this IServiceCollection services)
         => services
-           .AddCommandHandler<GenerateDlqCliCommand, GenerateDlqCommandHandler>();
+            .AddCommandHandler<GenerateDlqCliCommand, GenerateDlqCommandHandler>();
 
     private static IServiceCollection AddCommandHandler<TCommand, THandler>(this IServiceCollection services)
         where THandler : class, ICommandHandler<TCommand>

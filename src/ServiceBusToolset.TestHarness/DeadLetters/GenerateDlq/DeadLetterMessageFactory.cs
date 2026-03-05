@@ -1,6 +1,9 @@
 namespace ServiceBusToolset.TestHarness.DeadLetters.GenerateDlq;
 
-public record DeadLetterSpec(string Subject, string DeadLetterReason, string Body, TelemetryProfile Profile = TelemetryProfile.NoOperationId);
+public record DeadLetterSpec(string Subject,
+                             string DeadLetterReason,
+                             string Body,
+                             TelemetryProfile Profile = TelemetryProfile.NoOperationId);
 
 public class DeadLetterMessageFactory
 {
@@ -36,8 +39,10 @@ public class DeadLetterMessageFactory
     [
         ("Error processing order {0}", ["ORD-1001", "ORD-2002", "ORD-3003", "ORD-4004", "ORD-5005"]),
         ("Could not create user with ID {0}",
-            ["3f2504e0-4f89-11d3-9a0c-0305e82c3301", "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-             "f47ac10b-58cc-4372-a567-0e02b2c3d479"]),
+            [
+                "3f2504e0-4f89-11d3-9a0c-0305e82c3301", "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+                "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            ]),
         ("Timeout for service {0}", ["InventoryAPI", "PaymentGateway", "UserProfileService", "NotificationHub"]),
         ("Connection refused for host {0}",
             ["db-primary.internal", "cache-01.internal", "queue-broker.internal", "search-node.internal"]),

@@ -72,7 +72,7 @@ public class ReactiveMessageCacheShould
         cache.AddOrUpdate([new TestMessage("1", "A")]);
 
         // Allow subscription to process
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         // Assert
         changeSets.ShouldNotBeEmpty();

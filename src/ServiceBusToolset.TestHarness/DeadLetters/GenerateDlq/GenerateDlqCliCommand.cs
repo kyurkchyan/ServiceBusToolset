@@ -31,7 +31,7 @@ public class GenerateDlqCliCommand : ICliCommand
     public bool Verbose { get; set; }
 
     [Option('a',
-               "app-insights-connection-string",
+            "app-insights-connection-string",
             Required = false,
             HelpText = "Application Insights connection string for generating correlated telemetry")]
     public string? AppInsightsConnectionString { get; set; }

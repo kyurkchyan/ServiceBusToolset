@@ -1,0 +1,201 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.coderabbit.yaml'
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  authorize:
+    name: Authorize
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.pull_request.user.login != 'kyurkchyan' && 'pr-approval' || '' }}
+    steps:
+      - run: echo "PR authorized"
+
+  formatting:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    needs: authorize
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup .NET & Restore
+        uses: ./.github/actions/setup-dotnet-build
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Check formatting (Rider Team Cleanup)
+        run: |
+          dotnet tool install -g JetBrains.ReSharper.GlobalTools
+          jb cleanupcode --profile="Team Cleanup" ServiceBusToolset.slnx
+          git diff --exit-code || (echo "::error::Code doesn't match Team Cleanup profile. Run Rider's Team Cleanup locally." && exit 1)
+
+  unit-tests:
+    name: Build & Unit Tests
+    runs-on: ubuntu-latest
+    needs: authorize
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup .NET & Restore
+        uses: ./.github/actions/setup-dotnet-build
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Check for vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee vulnerable.txt
+          if grep -q "has the following vulnerable packages" vulnerable.txt; then
+            echo "::error::Vulnerable NuGet packages detected"
+            exit 1
+          fi
+
+      - name: Run unit tests
+        run: >
+          dotnet test tests/ServiceBusToolset.Application.Tests
+          -c Release --no-build
+          --logger "trx;LogFileName=unit-tests.trx"
+          --results-directory ./test-results
+          --collect:"XPlat Code Coverage"
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: unit-test-results
+          path: ./test-results/**/*.trx
+
+      - name: Generate coverage report
+        id: generate-coverage-report
+        if: success()
+        uses: danielpalme/ReportGenerator-GitHub-Action@ee0ae774f6d3afedcbd1683c1ab21b83670bdf8e # 5.5.1
+        with:
+          reports: ./test-results/**/coverage.cobertura.xml
+          targetdir: ./coverage-report
+          reporttypes: MarkdownSummaryGithub;TextSummary
+
+      - name: Post coverage summary to PR
+        if: success()
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
+        continue-on-error: true
+        with:
+          header: coverage
+          path: ./coverage-report/SummaryGithub.md
+
+      - name: Check coverage threshold
+        if: always() && steps.generate-coverage-report.outcome == 'success'
+        run: |
+          if [ ! -f "./coverage-report/Summary.txt" ]; then
+            echo "::error::Coverage report file not found"
+            exit 1
+          fi
+          SUMMARY=$(cat ./coverage-report/Summary.txt)
+          if [ -z "$SUMMARY" ]; then
+            echo "::error::Coverage report is empty"
+            exit 1
+          fi
+          echo "$SUMMARY"
+          LINE_COVERAGE=$(echo "$SUMMARY" | grep -i 'Line coverage' | grep -oP '[\d.]+(?=%)' || true)
+          echo "Line coverage: ${LINE_COVERAGE}%"
+          if [ -z "$LINE_COVERAGE" ]; then
+            echo "::error::Could not parse line coverage from summary report"
+            exit 1
+          fi
+          THRESHOLD=60
+          if (( $(echo "$LINE_COVERAGE < $THRESHOLD" | bc -l) )); then
+            echo "::error::Line coverage ${LINE_COVERAGE}% is below the ${THRESHOLD}% threshold"
+            exit 1
+          fi
+          echo "Coverage check passed: ${LINE_COVERAGE}% >= ${THRESHOLD}%"
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: [self-hosted, macOS]
+    needs: authorize
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup .NET & Restore
+        uses: ./.github/actions/setup-dotnet-build
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Run integration tests
+        run: >
+          dotnet test tests/ServiceBusToolset.Integration.Tests
+          -c Release --no-build
+          --logger "trx;LogFileName=integration-tests.trx"
+          --results-directory ./test-results
+
+      - name: Run CLI integration tests
+        if: always()
+        run: >
+          dotnet test tests/ServiceBusToolset.CLI.Integration.Tests
+          -c Release --no-build
+          --logger "trx;LogFileName=cli-integration-tests.trx"
+          --results-directory ./test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: integration-test-results
+          path: ./test-results/**/*.trx
+
+  test-report:
+    name: Publish Test Report
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, formatting]
+    if: always()
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Download unit test results
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: unit-test-results
+          path: ./test-results
+        continue-on-error: true
+
+      - name: Download integration test results
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: integration-test-results
+          path: ./test-results
+        continue-on-error: true
+
+      - name: Publish test report
+        uses: dorny/test-reporter@b082adf0eced0765477756c2a610396589b8c637 # v2.5.0
+        with:
+          name: Test Results
+          path: ./test-results/**/*.trx
+          reporter: dotnet-trx

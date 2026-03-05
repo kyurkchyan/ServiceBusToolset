@@ -18,77 +18,77 @@ public static class DlqScanSessionExtensions
         var scrollOffset = 0;
 
         await AnsiConsole.Live(new Text("Initializing..."))
-            .AutoClear(true)
-            .StartAsync(async ctx =>
-            {
-                void Refresh()
-                {
-                    var renderable = BuildScanningRenderable(latestSnapshot,
-                                                             entityDescription,
-                                                             session.TotalDlqCount,
-                                                             scrollOffset);
-                    ctx.UpdateTarget(renderable);
-                    ctx.Refresh();
-                }
+                         .AutoClear(true)
+                         .StartAsync(async ctx =>
+                         {
+                             void Refresh()
+                             {
+                                 var renderable = BuildScanningRenderable(latestSnapshot,
+                                                                          entityDescription,
+                                                                          session.TotalDlqCount,
+                                                                          scrollOffset);
+                                 ctx.UpdateTarget(renderable);
+                                 ctx.Refresh();
+                             }
 
-                using (session.CategoryStream.Subscribe(snapshot =>
-                       {
-                           latestSnapshot = snapshot;
-                           Refresh();
-                       }))
-                {
-                    var scanTask = session.ScanCompletion.Task;
-                    var keyTask = Task.Run(() =>
-                    {
-                        if (Console.IsInputRedirected)
-                        {
-                            session.ScanCancellationToken.WaitHandle.WaitOne();
-                            return;
-                        }
+                             using (session.CategoryStream.Subscribe(snapshot =>
+                                    {
+                                        latestSnapshot = snapshot;
+                                        Refresh();
+                                    }))
+                             {
+                                 var scanTask = session.ScanCompletion.Task;
+                                 var keyTask = Task.Run(() =>
+                                 {
+                                     if (Console.IsInputRedirected)
+                                     {
+                                         session.ScanCancellationToken.WaitHandle.WaitOne();
+                                         return;
+                                     }
 
-                        while (!session.ScanCancellationToken.IsCancellationRequested)
-                        {
-                            if (Console.KeyAvailable)
-                            {
-                                var key = Console.ReadKey(true);
-                                if (key.KeyChar is 'x' or 'X')
-                                {
-                                    return;
-                                }
+                                     while (!session.ScanCancellationToken.IsCancellationRequested)
+                                     {
+                                         if (Console.KeyAvailable)
+                                         {
+                                             var key = Console.ReadKey(true);
+                                             if (key.KeyChar is 'x' or 'X')
+                                             {
+                                                 return;
+                                             }
 
-                                var totalRows = latestSnapshot.Categories.Count;
-                                var maxVisible = Math.Max(1, Console.WindowHeight - TableChromeLines);
-                                var maxOffset = Math.Max(0, totalRows - maxVisible);
+                                             var totalRows = latestSnapshot.Categories.Count;
+                                             var maxVisible = Math.Max(1, Console.WindowHeight - TableChromeLines);
+                                             var maxOffset = Math.Max(0, totalRows - maxVisible);
 
-                                var newOffset = key switch
-                                {
-                                    { Key: ConsoleKey.UpArrow, Modifiers: ConsoleModifiers.Shift } =>
-                                        Math.Max(0, scrollOffset - maxVisible),
-                                    { Key: ConsoleKey.DownArrow, Modifiers: ConsoleModifiers.Shift } =>
-                                        Math.Min(maxOffset, scrollOffset + maxVisible),
-                                    { Key: ConsoleKey.UpArrow } =>
-                                        Math.Max(0, scrollOffset - 1),
-                                    { Key: ConsoleKey.DownArrow } =>
-                                        Math.Min(maxOffset, scrollOffset + 1),
-                                    _ => scrollOffset
-                                };
+                                             var newOffset = key switch
+                                             {
+                                                 { Key: ConsoleKey.UpArrow, Modifiers: ConsoleModifiers.Shift } =>
+                                                     Math.Max(0, scrollOffset - maxVisible),
+                                                 { Key: ConsoleKey.DownArrow, Modifiers: ConsoleModifiers.Shift } =>
+                                                     Math.Min(maxOffset, scrollOffset + maxVisible),
+                                                 { Key: ConsoleKey.UpArrow } =>
+                                                     Math.Max(0, scrollOffset - 1),
+                                                 { Key: ConsoleKey.DownArrow } =>
+                                                     Math.Min(maxOffset, scrollOffset + 1),
+                                                 _ => scrollOffset
+                                             };
 
-                                if (newOffset != scrollOffset)
-                                {
-                                    scrollOffset = newOffset;
-                                    Refresh();
-                                }
-                            }
+                                             if (newOffset != scrollOffset)
+                                             {
+                                                 scrollOffset = newOffset;
+                                                 Refresh();
+                                             }
+                                         }
 
-                            Thread.Sleep(50);
-                        }
-                    });
+                                         Thread.Sleep(50);
+                                     }
+                                 });
 
-                    await Task.WhenAny(scanTask, keyTask);
-                    session.StopScanning();
-                    await scanTask;
-                }
-            });
+                                 await Task.WhenAny(scanTask, keyTask);
+                                 session.StopScanning();
+                                 await scanTask;
+                             }
+                         });
     }
 
     public static InteractiveCategorySelection? GetCategorySelection(
@@ -158,9 +158,8 @@ public static class DlqScanSessionExtensions
 
         if (snapshot.Categories.Count == 0)
         {
-            return new Rows(
-                new Text($"Scanning DLQ for {entityDescription}... {peekedInfo}"),
-                new Markup("[dim]Press 'x' to stop scanning and select categories[/]"));
+            return new Rows(new Text($"Scanning DLQ for {entityDescription}... {peekedInfo}"),
+                            new Markup("[dim]Press 'x' to stop scanning and select categories[/]"));
         }
 
         var (headers, allRows) = DlqCategoryDisplay.GenerateTableData(snapshot.Categories);

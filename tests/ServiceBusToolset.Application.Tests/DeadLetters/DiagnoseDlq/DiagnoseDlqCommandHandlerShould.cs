@@ -80,11 +80,9 @@ public class DiagnoseDlqCommandHandlerShould
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
-        await _mockAppInsights.Received(1).DiagnoseBatchAsync(
-            Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(
-                ops => ops.Any(o => o.OperationId == traceId)),
-            Arg.Any<Action<int, int>?>(),
-            Arg.Any<CancellationToken>());
+        await _mockAppInsights.Received(1).DiagnoseBatchAsync(Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(ops => ops.Any(o => o.OperationId == traceId)),
+                                                              Arg.Any<Action<int, int>?>(),
+                                                              Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -111,11 +109,9 @@ public class DiagnoseDlqCommandHandlerShould
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
-        await _mockAppInsights.Received(1).DiagnoseBatchAsync(
-            Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(
-                ops => ops.Any(o => o.OperationId == traceId)),
-            Arg.Any<Action<int, int>?>(),
-            Arg.Any<CancellationToken>());
+        await _mockAppInsights.Received(1).DiagnoseBatchAsync(Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(ops => ops.Any(o => o.OperationId == traceId)),
+                                                              Arg.Any<Action<int, int>?>(),
+                                                              Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -142,11 +138,9 @@ public class DiagnoseDlqCommandHandlerShould
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
-        await _mockAppInsights.Received(1).DiagnoseBatchAsync(
-            Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(
-                ops => ops.Any(o => o.OperationId == operationId)),
-            Arg.Any<Action<int, int>?>(),
-            Arg.Any<CancellationToken>());
+        await _mockAppInsights.Received(1).DiagnoseBatchAsync(Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(ops => ops.Any(o => o.OperationId == operationId)),
+                                                              Arg.Any<Action<int, int>?>(),
+                                                              Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -173,11 +167,9 @@ public class DiagnoseDlqCommandHandlerShould
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
-        await _mockAppInsights.Received(1).DiagnoseBatchAsync(
-            Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(
-                ops => ops.Any(o => o.OperationId == correlationId)),
-            Arg.Any<Action<int, int>?>(),
-            Arg.Any<CancellationToken>());
+        await _mockAppInsights.Received(1).DiagnoseBatchAsync(Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(ops => ops.Any(o => o.OperationId == correlationId)),
+                                                              Arg.Any<Action<int, int>?>(),
+                                                              Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -232,7 +224,7 @@ public class DiagnoseDlqCommandHandlerShould
         _mockFactory.WithMessagesToReturn(messages);
         SetupAppInsightsResponse(oldTraceId);
 
-        var command = CreateCommand(beforeTime: cutoffTime);
+        var command = CreateCommand(cutoffTime);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -270,12 +262,9 @@ public class DiagnoseDlqCommandHandlerShould
         _mockFactory.WithMessagesToReturn(messages);
         SetupAppInsightsResponse(matchingTraceId);
 
-        var categoryFilter = new HashSet<DlqCategoryKey>
-        {
-            DlqCategoryKey.FromMessage("OrderProcessor", "MaxDeliveryCountExceeded")
-        };
+        var categoryFilter = new HashSet<DlqCategoryKey> { DlqCategoryKey.FromMessage("OrderProcessor", "MaxDeliveryCountExceeded") };
 
-        var command = CreateCommand(categoryFilter: categoryFilter);
+        var command = CreateCommand(categoryFilter:categoryFilter);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -349,22 +338,18 @@ public class DiagnoseDlqCommandHandlerShould
 
         var appInsightsResults = new Dictionary<string, DiagnosticResult>
         {
-            [traceIdWithTelemetry] = new DiagnosticResult
+            [traceIdWithTelemetry] = new()
             {
                 OperationId = traceIdWithTelemetry,
                 Exceptions = [new ExceptionInfo { ExceptionType = "TestException" }]
             },
-            [traceIdNoTelemetry] = new DiagnosticResult
-            {
-                OperationId = traceIdNoTelemetry
-            }
+            [traceIdNoTelemetry] = new() { OperationId = traceIdNoTelemetry }
         };
 
-        _mockAppInsights.DiagnoseBatchAsync(
-            Arg.Any<IReadOnlyList<(string, DateTimeOffset)>>(),
-            Arg.Any<Action<int, int>?>(),
-            Arg.Any<CancellationToken>())
-            .Returns(appInsightsResults);
+        _mockAppInsights.DiagnoseBatchAsync(Arg.Any<IReadOnlyList<(string, DateTimeOffset)>>(),
+                                            Arg.Any<Action<int, int>?>(),
+                                            Arg.Any<CancellationToken>())
+                        .Returns(appInsightsResults);
 
         var command = CreateCommand();
 
@@ -408,37 +393,28 @@ public class DiagnoseDlqCommandHandlerShould
         // Assert
         result.IsSuccess.ShouldBeTrue();
         // Only one unique operation ID should be queried
-        await _mockAppInsights.Received(1).DiagnoseBatchAsync(
-            Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(
-                ops => ops.Count == 1),
-            Arg.Any<Action<int, int>?>(),
-            Arg.Any<CancellationToken>());
+        await _mockAppInsights.Received(1).DiagnoseBatchAsync(Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(ops => ops.Count == 1),
+                                                              Arg.Any<Action<int, int>?>(),
+                                                              Arg.Any<CancellationToken>());
     }
 
     private DiagnoseDlqCommand CreateCommand(
         DateTimeOffset? beforeTime = null,
-        IReadOnlySet<DlqCategoryKey>? categoryFilter = null)
-    {
-        return new DiagnoseDlqCommand(
-            "test.servicebus.windows.net",
-            EntityTargetBuilder.Queue("test-queue"),
+        IReadOnlySet<DlqCategoryKey>? categoryFilter = null) =>
+        new("test.servicebus.windows.net",
+            EntityTargetBuilder.Queue(),
             "test-app-insights-resource",
-            MaxMessages: 100,
-            BeforeTime: beforeTime,
-            CategoryFilter: categoryFilter);
-    }
+            100,
+            beforeTime,
+            categoryFilter);
 
     private void SetupAppInsightsResponse(string operationId)
     {
-        var results = new Dictionary<string, DiagnosticResult>
-        {
-            [operationId] = new DiagnosticResult { OperationId = operationId }
-        };
+        var results = new Dictionary<string, DiagnosticResult> { [operationId] = new() { OperationId = operationId } };
 
-        _mockAppInsights.DiagnoseBatchAsync(
-            Arg.Any<IReadOnlyList<(string, DateTimeOffset)>>(),
-            Arg.Any<Action<int, int>?>(),
-            Arg.Any<CancellationToken>())
-            .Returns(results);
+        _mockAppInsights.DiagnoseBatchAsync(Arg.Any<IReadOnlyList<(string, DateTimeOffset)>>(),
+                                            Arg.Any<Action<int, int>?>(),
+                                            Arg.Any<CancellationToken>())
+                        .Returns(results);
     }
 }

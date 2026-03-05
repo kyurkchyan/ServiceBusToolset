@@ -2,7 +2,7 @@ name: Alpha Release
 
 on:
   push:
-    branches: [master, 'feature/GK/cicd-pipelines']
+    branches: [master]
     paths-ignore:
       - '**.md'
       - 'docs/**'
@@ -13,39 +13,116 @@ on:
         required: false
         default: '1.0.0'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: alpha-release-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   BASE_VERSION: '1.0.0'
 
 jobs:
-  alpha-release:
+  test:
+    name: Run Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Generate version
-        id: version
-        run: |
-          # Use input version if provided (workflow_dispatch), otherwise use env default
-          BASE="${{ github.event.inputs.base_version || env.BASE_VERSION }}"
-          ALPHA_VERSION="${BASE}-alpha.${GITHUB_RUN_NUMBER}"
-          echo "version=$ALPHA_VERSION" >> $GITHUB_OUTPUT
-          echo "Generated version: $ALPHA_VERSION"
-
-      - name: Restore dependencies
-        run: dotnet restore
+      - name: Setup .NET & Restore
+        uses: ./.github/actions/setup-dotnet-build
 
       - name: Build
         run: dotnet build -c Release --no-restore
 
+      - name: Run unit tests
+        run: >
+          dotnet test tests/ServiceBusToolset.Application.Tests
+          -c Release --no-build
+          --collect:"XPlat Code Coverage"
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      - name: Generate coverage report
+        uses: danielpalme/ReportGenerator-GitHub-Action@ee0ae774f6d3afedcbd1683c1ab21b83670bdf8e # 5.5.1
+        with:
+          reports: ./**/coverage.cobertura.xml
+          targetdir: ./coverage-report
+          reporttypes: TextSummary
+
+      - name: Extract and publish coverage badge
+        id: coverage
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: |
+          SUMMARY=$(cat ./coverage-report/Summary.txt)
+          LINE_COVERAGE=$(echo "$SUMMARY" | grep -i 'Line coverage' | grep -oP '[\d.]+(?=%)')
+          echo "Line coverage: ${LINE_COVERAGE}%"
+          if [ -z "$LINE_COVERAGE" ]; then
+            echo "::warning::Could not parse line coverage"
+            exit 0
+          fi
+          echo "coverage=${LINE_COVERAGE}" >> $GITHUB_OUTPUT
+          # Determine badge color
+          if (( $(echo "$LINE_COVERAGE >= 80" | bc -l) )); then
+            COLOR="brightgreen"
+          elif (( $(echo "$LINE_COVERAGE >= 60" | bc -l) )); then
+            COLOR="yellowgreen"
+          else
+            COLOR="red"
+          fi
+          echo "color=${COLOR}" >> $GITHUB_OUTPUT
+
+      - name: Update coverage badge gist
+        if: steps.coverage.outputs.coverage != '' && env.GIST_TOKEN != ''
+        uses: schneegans/dynamic-badges-action@e9a478b16159b4d31420099ba146cdc50f134483 # v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: ${{ vars.COVERAGE_GIST_ID }}
+          filename: coverage-badge.json
+          label: coverage
+          message: ${{ steps.coverage.outputs.coverage }}%
+          color: ${{ steps.coverage.outputs.color }}
+
+  alpha-release:
+    name: Alpha Release
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup .NET & Restore
+        uses: ./.github/actions/setup-dotnet-build
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Generate version
+        id: version
+        env:
+          INPUT_BASE_VERSION: ${{ github.event.inputs.base_version }}
+        run: |
+          # Use input version if provided (workflow_dispatch), otherwise use env default
+          BASE="${INPUT_BASE_VERSION:-$BASE_VERSION}"
+          # Validate version matches strict semver pattern
+          if [[ ! "$BASE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid base version '$BASE'. Must match X.Y.Z semver format."
+            exit 1
+          fi
+          ALPHA_VERSION="${BASE}-alpha.${GITHUB_RUN_NUMBER}"
+          echo "version=$ALPHA_VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $ALPHA_VERSION"
+
       - name: Pack
-        run: dotnet pack src/ServiceBusToolset.CLI -c Release --no-build -o ./artifacts -p:Version=${{ steps.version.outputs.version }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: dotnet pack src/ServiceBusToolset.CLI -c Release --no-build -o ./artifacts -p:Version="$VERSION"
 
       - name: Push to NuGet
         env:
@@ -55,4 +132,4 @@ jobs:
             echo "::warning::NUGET_API_KEY secret not set, skipping publish"
             exit 0
           fi
-          dotnet nuget push ./artifacts/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push ./artifacts/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate

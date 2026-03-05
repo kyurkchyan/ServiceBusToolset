@@ -43,8 +43,6 @@ bld/
 # Visual Studio 2017 auto generated files
 Generated\ Files/
 
-# Jetbrains Rider
-.idea/
 
 # MSTest test Results
 [Tt]est[Rr]esult*/

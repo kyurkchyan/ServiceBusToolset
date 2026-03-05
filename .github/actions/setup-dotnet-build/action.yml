@@ -1,0 +1,27 @@
+name: Setup .NET & Restore
+description: Setup .NET SDK, cache NuGet packages, and restore dependencies. Requires actions/checkout to run first.
+
+inputs:
+  dotnet-version:
+    description: '.NET SDK version to install'
+    required: false
+    default: '10.0.x'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@baa11fbfe1d6520db94683bd5c7a3818018e4309 # v5.1.0
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Cache NuGet packages
+      uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
+        restore-keys: nuget-
+
+    - name: Restore dependencies
+      run: dotnet restore
+      shell: bash

@@ -30,7 +30,7 @@ public class MessageOperationsShould
         SetupPeekToReturnThenEmpty(messages);
 
         // Act
-        var result = await MessageOperations.PeekAllAsync(_receiver, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.PeekAllAsync(_receiver, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.Count.ShouldBe(2);
@@ -45,7 +45,7 @@ public class MessageOperationsShould
         SetupPeekToReturnEmpty();
 
         // Act
-        var result = await MessageOperations.PeekAllAsync(_receiver, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.PeekAllAsync(_receiver, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.ShouldBeEmpty();
@@ -70,7 +70,7 @@ public class MessageOperationsShould
         SetupMultipleBatches(batch1, batch2);
 
         // Act
-        var result = await MessageOperations.PeekAllAsync(_receiver, batchSize: 100, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.PeekAllAsync(_receiver, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.Count.ShouldBe(150);
@@ -82,10 +82,7 @@ public class MessageOperationsShould
     public async Task StopPeeking_WhenEmptyBatchThresholdReached()
     {
         // Arrange
-        var messages = new[]
-        {
-            ServiceBusReceivedMessageBuilder.Create().WithMessageId("msg-1").Build()
-        };
+        var messages = new[] { ServiceBusReceivedMessageBuilder.Create().WithMessageId("msg-1").Build() };
 
         // Return messages once, then empty batches
         var callCount = 0;
@@ -102,7 +99,7 @@ public class MessageOperationsShould
                  });
 
         // Act
-        var result = await MessageOperations.PeekAllAsync(_receiver, emptyBatchThreshold: 3, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.PeekAllAsync(_receiver, emptyBatchThreshold:3, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.Count.ShouldBe(1);
@@ -122,15 +119,12 @@ public class MessageOperationsShould
             ServiceBusReceivedMessageBuilder.Create().WithMessageId("msg-2").Build()
         };
 
-        var batch2 = new[]
-        {
-            ServiceBusReceivedMessageBuilder.Create().WithMessageId("msg-3").Build()
-        };
+        var batch2 = new[] { ServiceBusReceivedMessageBuilder.Create().WithMessageId("msg-3").Build() };
 
         SetupMultipleBatches(batch1, batch2);
 
         // Act
-        await MessageOperations.PeekAllAsync(_receiver, progress: progress, cancellationToken: TestContext.Current.CancellationToken);
+        await MessageOperations.PeekAllAsync(_receiver, progress:progress, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert - wait for progress to be reported
         await Task.Delay(50, TestContext.Current.CancellationToken);
@@ -154,12 +148,11 @@ public class MessageOperationsShould
                          cts.Cancel();
                      }
 
-                     return Task.FromResult<IReadOnlyList<ServiceBusReceivedMessage>>(
-                         [ServiceBusReceivedMessageBuilder.Create().WithMessageId($"msg-{callCount}").Build()]);
+                     return Task.FromResult<IReadOnlyList<ServiceBusReceivedMessage>>([ServiceBusReceivedMessageBuilder.Create().WithMessageId($"msg-{callCount}").Build()]);
                  });
 
         // Act
-        var result = await MessageOperations.PeekAllAsync(_receiver, cancellationToken: cts.Token);
+        var result = await MessageOperations.PeekAllAsync(_receiver, cancellationToken:cts.Token);
 
         // Assert
         result.Count.ShouldBe(2);
@@ -184,7 +177,7 @@ public class MessageOperationsShould
                  });
 
         // Act
-        var result = await MessageOperations.PeekAsync(_receiver, maxMessages: 50, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.PeekAsync(_receiver, 50, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.Count.ShouldBe(50);
@@ -203,7 +196,7 @@ public class MessageOperationsShould
         SetupPeekToReturnThenEmpty(messages);
 
         // Act
-        var result = await MessageOperations.PeekAsync(_receiver, maxMessages: 100, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.PeekAsync(_receiver, 100, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.Count.ShouldBe(2);
@@ -216,7 +209,7 @@ public class MessageOperationsShould
         SetupPeekToReturnEmpty();
 
         // Act
-        var result = await MessageOperations.PeekAsync(_receiver, maxMessages: 50, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.PeekAsync(_receiver, 50, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.ShouldBeEmpty();
@@ -244,11 +237,13 @@ public class MessageOperationsShould
                  });
 
         // Act
-        await MessageOperations.PeekAsync(_receiver, maxMessages: 150, batchSize: 100, cancellationToken: TestContext.Current.CancellationToken);
+        await MessageOperations.PeekAsync(_receiver,
+                                          150,
+                                          cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         capturedBatchSizes.ShouldContain(100); // First batch
-        capturedBatchSizes.ShouldContain(50);  // Second batch (150-100=50 remaining)
+        capturedBatchSizes.ShouldContain(50); // Second batch (150-100=50 remaining)
     }
 
     [Fact]
@@ -276,7 +271,7 @@ public class MessageOperationsShould
         SetupPeekToReturnThenEmpty(messages);
 
         // Act
-        var result = await MessageOperations.CountWithTimeFilterAsync(_receiver, cutoffTime, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.CountWithTimeFilterAsync(_receiver, cutoffTime, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.TotalCount.ShouldBe(3);
@@ -300,7 +295,7 @@ public class MessageOperationsShould
         SetupPeekToReturnThenEmpty(messages);
 
         // Act
-        var result = await MessageOperations.CountWithTimeFilterAsync(_receiver, cutoffTime, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.CountWithTimeFilterAsync(_receiver, cutoffTime, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.TotalCount.ShouldBe(1);
@@ -314,7 +309,7 @@ public class MessageOperationsShould
         SetupPeekToReturnEmpty();
 
         // Act
-        var result = await MessageOperations.CountWithTimeFilterAsync(_receiver, DateTimeOffset.UtcNow, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.CountWithTimeFilterAsync(_receiver, DateTimeOffset.UtcNow, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.TotalCount.ShouldBe(0);
@@ -338,7 +333,10 @@ public class MessageOperationsShould
         SetupPeekToReturnThenEmpty(messages);
 
         // Act
-        await MessageOperations.CountWithTimeFilterAsync(_receiver, DateTimeOffset.UtcNow, progress: progress, cancellationToken: TestContext.Current.CancellationToken);
+        await MessageOperations.CountWithTimeFilterAsync(_receiver,
+                                                         DateTimeOffset.UtcNow,
+                                                         progress:progress,
+                                                         cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         await Task.Delay(50, TestContext.Current.CancellationToken);
@@ -364,7 +362,7 @@ public class MessageOperationsShould
         SetupPeekToReturnThenEmpty(messages);
 
         // Act
-        var result = await MessageOperations.CountWithTimeFilterAsync(_receiver, cutoffTime, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await MessageOperations.CountWithTimeFilterAsync(_receiver, cutoffTime, cancellationToken:TestContext.Current.CancellationToken);
 
         // Assert
         result.TotalCount.ShouldBe(2);

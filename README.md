@@ -1,5 +1,10 @@
 # ServiceBusToolset
 
+[![Build](https://github.com/kyurkchyan/ServiceBusToolset/actions/workflows/alpha-release.yml/badge.svg?branch=master)](https://github.com/kyurkchyan/ServiceBusToolset/actions/workflows/alpha-release.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/kyurkchyan/COVERAGE_GIST_ID/raw/coverage-badge.json)](https://github.com/kyurkchyan/ServiceBusToolset/actions/workflows/alpha-release.yml)
+[![NuGet](https://img.shields.io/nuget/v/ServiceBusToolset)](https://www.nuget.org/packages/ServiceBusToolset)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A command-line tool for managing Azure Service Bus.
 
 ## Installation
@@ -32,14 +37,14 @@ dotnet build
 
 ## Commands
 
-| Command                                                  | Description                                                       |
-|----------------------------------------------------------|-------------------------------------------------------------------|
-| [purge-dlq](docs/purge-dlq.md)                           | Purge messages from a dead letter queue                           |
-| [resubmit-dlq](docs/resubmit-dlq.md)                     | Resubmit messages from a dead letter queue back to the main queue |
-| [dump-dlq](docs/dump-dlq.md)                             | Export DLQ messages to a JSON file                                |
-| [diagnose-dlq](docs/diagnose-dlq.md)                     | Diagnose DLQ messages using Application Insights telemetry        |
-| [monitor-queues](docs/monitor-queues.md)                 | Monitor queue statistics in a live-updating console table         |
-| [monitor-subscriptions](docs/monitor-subscriptions.md)   | Monitor topic subscription statistics in a live-updating table    |
+| Command                                                | Description                                                       |
+|--------------------------------------------------------|-------------------------------------------------------------------|
+| [purge-dlq](docs/purge-dlq.md)                         | Purge messages from a dead letter queue                           |
+| [resubmit-dlq](docs/resubmit-dlq.md)                   | Resubmit messages from a dead letter queue back to the main queue |
+| [dump-dlq](docs/dump-dlq.md)                           | Export DLQ messages to a JSON file                                |
+| [diagnose-dlq](docs/diagnose-dlq.md)                   | Diagnose DLQ messages using Application Insights telemetry        |
+| [monitor-queues](docs/monitor-queues.md)               | Monitor queue statistics in a live-updating console table         |
+| [monitor-subscriptions](docs/monitor-subscriptions.md) | Monitor topic subscription statistics in a live-updating table    |
 
 ## Quick Start
 
