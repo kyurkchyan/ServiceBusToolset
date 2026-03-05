@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  actions: read
   contents: read
   pull-requests: write
   checks: write
@@ -154,6 +155,7 @@ jobs:
           --results-directory ./test-results
 
       - name: Run CLI integration tests
+        if: always()
         run: >
           dotnet test tests/ServiceBusToolset.CLI.Integration.Tests
           -c Release --no-build
@@ -182,6 +184,7 @@ jobs:
         with:
           name: unit-test-results
           path: ./test-results
+        continue-on-error: true
 
       - name: Download integration test results
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0

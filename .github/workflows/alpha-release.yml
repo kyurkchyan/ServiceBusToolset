@@ -50,6 +50,7 @@ jobs:
           reporttypes: TextSummary
 
       - name: Extract and publish coverage badge
+        id: coverage
         env:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: |
@@ -70,7 +71,6 @@ jobs:
             COLOR="red"
           fi
           echo "color=${COLOR}" >> $GITHUB_OUTPUT
-        id: coverage
 
       - name: Update coverage badge gist
         if: steps.coverage.outputs.coverage != '' && env.GIST_TOKEN != ''
@@ -84,8 +84,10 @@ jobs:
           color: ${{ steps.coverage.outputs.color }}
 
   alpha-release:
+    name: Alpha Release
     runs-on: ubuntu-latest
     needs: test
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -126,4 +128,4 @@ jobs:
             echo "::warning::NUGET_API_KEY secret not set, skipping publish"
             exit 0
           fi
-          dotnet nuget push ./artifacts/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push ./artifacts/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
