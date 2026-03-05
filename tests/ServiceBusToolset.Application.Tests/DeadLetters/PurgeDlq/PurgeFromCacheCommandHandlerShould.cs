@@ -39,7 +39,7 @@ public class PurgeFromCacheCommandHandlerShould
                                                 [msg1]);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
@@ -68,7 +68,7 @@ public class PurgeFromCacheCommandHandlerShould
                                                 [msg1]);
 
         // Act
-        await _handler.Handle(command, CancellationToken.None);
+        await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         await _mockFactory.Receiver.Received(1).AbandonMessageAsync(Arg.Is<ServiceBusReceivedMessage>(m => m.MessageId == "msg-2"),
@@ -87,7 +87,7 @@ public class PurgeFromCacheCommandHandlerShould
                                                 []);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();

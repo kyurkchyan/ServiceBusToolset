@@ -157,6 +157,7 @@ This is both a **cost optimization** (fewer wasted CI minutes) and a **feedback 
 
 ```yaml
 permissions:
+  actions: read
   contents: read
   pull-requests: write
   checks: write
@@ -164,6 +165,7 @@ permissions:
 
 By default, the `GITHUB_TOKEN` in a workflow gets broad permissions. This explicit declaration overrides that:
 
+- `actions: read` — needed by `dorny/test-reporter` to access workflow run data when publishing check results.
 - `contents: read` — the workflow can read the repository but not push code, create branches, or modify tags. Even if a third-party action is compromised, it can't alter the repository.
 - `pull-requests: write` — needed to post coverage comments on the PR.
 - `checks: write` — needed for the test reporter to create check runs with individual test results.
@@ -543,6 +545,31 @@ changelog:
 ```
 
 When a GitHub Release is created, the changelog is auto-generated from merged PR titles, grouped by label. This works in tandem with the `Release.ps1` script, which uses Claude CLI to generate richer release notes from commit messages and determine the appropriate version bump (major/minor/patch).
+
+## Reproducible Builds
+
+The `Directory.Build.props` at the repository root includes two properties that make CI builds reproducible:
+
+```xml
+<Deterministic>true</Deterministic>
+<ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+```
+
+### What `Deterministic` does
+
+By default, the C# compiler embeds non-deterministic data in assemblies: timestamps, random GUIDs, and absolute file paths. `Deterministic` eliminates all sources of non-determinism:
+
+- **Timestamps** are set to a fixed value
+- **GUIDs** are derived from content hashes instead of being random
+- **File paths** in PDBs are relativized
+
+The result: compiling the same source on two different machines produces byte-identical assemblies. This enables verifiable builds — a consumer can rebuild from source and confirm the output matches the published package.
+
+### What `ContinuousIntegrationBuild` does
+
+`ContinuousIntegrationBuild` goes further for CI-produced packages: it strips local file paths from PDBs entirely, replacing them with repository-relative paths via SourceLink. Without this, a PDB built on a CI runner would contain paths like `/home/runner/work/ServiceBusToolset/src/...`. With it, the paths become normalized and SourceLink maps them back to the GitHub repository.
+
+The `Condition="'$(CI)' == 'true'"` guard ensures this only applies in CI. During local development, you want actual file paths in PDBs so that debuggers can find source files. GitHub Actions sets `CI=true` automatically, so this works without any workflow configuration.
 
 ## Automated Dependency Management
 
