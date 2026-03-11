@@ -33,7 +33,7 @@ public sealed class DiagnoseDlqCommandHandler(IServiceBusClientFactory clientFac
         // Apply category filter
         if (command.CategoryFilter is { Count: > 0 })
         {
-            filteredMessages = DlqMessageService.FilterByCategories(filteredMessages, command.CategoryFilter).ToList();
+            filteredMessages = DlqMessageService.FilterByCategories(filteredMessages, command.CategoryFilter, command.Schema).ToList();
         }
 
         // Limit to max messages

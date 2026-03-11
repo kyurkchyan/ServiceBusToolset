@@ -52,6 +52,11 @@ public class DumpDlqCliCommand : ICliCommand
             HelpText = "Merge similar DLQ categories using LCS-based clustering (interactive mode only)")]
     public bool MergeSimilar { get; set; }
 
+    [Option("categorize-by",
+            Separator = ',',
+            HelpText = "Properties to categorize by. #Prop for system, $Prop for body. Default: #Subject,#DeadLetterReason")]
+    public IEnumerable<string>? CategorizeBy { get; set; }
+
     [Option('v',
             "verbose",
             Default = false,

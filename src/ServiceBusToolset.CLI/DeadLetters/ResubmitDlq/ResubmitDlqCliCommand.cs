@@ -59,6 +59,11 @@ public class ResubmitDlqCliCommand : ICliCommand
             HelpText = "Merge similar categories by replacing parameterized values (GUIDs, numbers) with wildcards")]
     public bool MergeSimilar { get; set; }
 
+    [Option("categorize-by",
+            Separator = ',',
+            HelpText = "Properties to categorize by. #Prop for system, $Prop for body. Default: #Subject,#DeadLetterReason")]
+    public IEnumerable<string>? CategorizeBy { get; set; }
+
     public bool IsQueueMode => !string.IsNullOrEmpty(Queue);
     public bool IsSubscriptionMode => !string.IsNullOrEmpty(Topic) && !string.IsNullOrEmpty(Subscription);
 

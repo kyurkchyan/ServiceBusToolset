@@ -5,14 +5,8 @@ using ServiceBusToolset.Application.Common.ServiceBus.Models;
 
 namespace ServiceBusToolset.Application.DeadLetters.Common;
 
-/// <summary>
-/// Provides DLQ-specific message operations.
-/// </summary>
 public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
 {
-    /// <summary>
-    /// Gets the dead letter message count for the specified entity.
-    /// </summary>
     public async Task<long> GetMessageCountAsync(
         string fullyQualifiedNamespace,
         EntityTarget target,
@@ -30,9 +24,6 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
         return subProps.Value.DeadLetterMessageCount;
     }
 
-    /// <summary>
-    /// Counts DLQ messages that match a time filter.
-    /// </summary>
     public static async Task<FilteredMessageCount> CountMessagesWithFilterAsync(
         ServiceBusClient client,
         EntityTarget target,
@@ -47,9 +38,6 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
                                                                 cancellationToken:cancellationToken);
     }
 
-    /// <summary>
-    /// Peeks all messages from the DLQ.
-    /// </summary>
     public static async Task<List<ServiceBusReceivedMessage>> PeekAllMessagesAsync(
         ServiceBusClient client,
         EntityTarget target,
@@ -62,15 +50,17 @@ public sealed class DlqMessageService(IServiceBusClientFactory clientFactory)
                                                     cancellationToken:cancellationToken);
     }
 
-    /// <summary>
-    /// Filters messages by DLQ categories (subject + dead letter reason).
-    /// </summary>
     public static IReadOnlyList<ServiceBusReceivedMessage> FilterByCategories(
         IEnumerable<ServiceBusReceivedMessage> messages,
-        IReadOnlySet<DlqCategoryKey> categories)
+        IReadOnlySet<DlqCategoryKey> categories,
+        CategorizationSchema? schema = null,
+        CategoryPropertyResolver? resolver = null)
     {
+        var effectiveSchema = schema ?? CategorizationSchema.Default;
+        var effectiveResolver = resolver ?? new CategoryPropertyResolver();
+
         return messages
-               .Where(m => categories.Contains(DlqCategoryKey.FromMessage(m.Subject, m.DeadLetterReason)))
+               .Where(m => categories.Contains(DlqCategoryKey.FromMessage(m, effectiveSchema, effectiveResolver)))
                .ToList();
     }
 }

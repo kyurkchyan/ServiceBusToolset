@@ -11,7 +11,8 @@ namespace ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 
 public sealed record StreamDlqCategoriesCommand(string FullyQualifiedNamespace,
                                                 EntityTarget Target,
-                                                bool MergeSimilar = false) : ICommand<Result<DlqResubmitSession>>;
+                                                bool MergeSimilar = false,
+                                                CategorizationSchema? Schema = null) : ICommand<Result<DlqResubmitSession>>;
 
 public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory clientFactory)
     : ICommandHandler<StreamDlqCategoriesCommand, Result<DlqResubmitSession>>
@@ -20,15 +21,27 @@ public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory c
         StreamDlqCategoriesCommand command,
         CancellationToken cancellationToken)
     {
+        var schema = command.Schema ?? CategorizationSchema.Default;
+        var resolver = new CategoryPropertyResolver();
         var cache = new ReactiveMessageCache<ServiceBusReceivedMessage, long>(m => m.SequenceNumber);
         var tracker = new ResubmitTracker();
 
         var categoryStream = cache.Connect()
                                   .Sample(TimeSpan.FromSeconds(1))
-                                  .Select(_ => DlqCategoryScanner.BuildCategorySnapshot(cache, command.MergeSimilar))
-                                  .StartWith(new DlqCategorySnapshot([], 0, false));
+                                  .Select(_ => DlqCategoryScanner.BuildCategorySnapshot(cache,
+                                                                                        command.MergeSimilar,
+                                                                                        schema,
+                                                                                        resolver))
+                                  .StartWith(new DlqCategorySnapshot([],
+                                                                     0,
+                                                                     false,
+                                                                     Schema:schema));
 
-        var session = new DlqResubmitSession(cache, categoryStream, tracker);
+        var session = new DlqResubmitSession(cache,
+                                             categoryStream,
+                                             tracker,
+                                             schema,
+                                             resolver);
 
         _ = Task.Run(async () =>
                      {

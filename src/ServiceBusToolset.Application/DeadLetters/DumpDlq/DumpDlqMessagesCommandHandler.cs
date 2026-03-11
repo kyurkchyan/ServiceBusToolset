@@ -25,7 +25,7 @@ public sealed class DumpDlqMessagesCommandHandler(IServiceBusClientFactory clien
 
         if (command.CategoryFilter is { Count: > 0 })
         {
-            filtered = DlqMessageService.FilterByCategories(filtered, command.CategoryFilter);
+            filtered = DlqMessageService.FilterByCategories(filtered, command.CategoryFilter, command.Schema);
         }
 
         if (filtered.Count == 0)

@@ -79,6 +79,7 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
                                                                      command.Target);
         await using var sender = client.CreateSender(command.TargetEntity);
 
+        var resolver = new CategoryPropertyResolver();
         var totalResubmitted = 0;
         var skippedSequenceNumbers = new HashSet<long>();
         var emptyBatches = 0;
@@ -100,7 +101,7 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
 
             foreach (var message in messages)
             {
-                if (ShouldResubmit(message, command))
+                if (ShouldResubmit(message, command, resolver))
                 {
                     toResubmit.Add((message, MessageResubmitHelper.CreateResubmitMessage(message)));
                 }
@@ -143,7 +144,9 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
         return Result.Success(new ResubmitDlqResult(totalResubmitted, skippedSequenceNumbers.Count));
     }
 
-    private static bool ShouldResubmit(ServiceBusReceivedMessage message, ResubmitDlqMessagesCommand command)
+    private static bool ShouldResubmit(ServiceBusReceivedMessage message,
+                                       ResubmitDlqMessagesCommand command,
+                                       CategoryPropertyResolver resolver)
     {
         if (command.BeforeTime.HasValue && message.EnqueuedTime >= command.BeforeTime.Value)
         {
@@ -152,7 +155,8 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
 
         if (command.CategoryFilter is { Count: > 0 })
         {
-            var key = DlqCategoryKey.FromMessage(message.Subject, message.DeadLetterReason);
+            var schema = command.Schema ?? CategorizationSchema.Default;
+            var key = DlqCategoryKey.FromMessage(message, schema, resolver);
             if (!command.CategoryFilter.Contains(key))
             {
                 return false;

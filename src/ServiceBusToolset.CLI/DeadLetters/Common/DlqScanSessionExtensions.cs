@@ -14,7 +14,10 @@ public static class DlqScanSessionExtensions
         IConsoleOutput output,
         string entityDescription)
     {
-        DlqCategorySnapshot latestSnapshot = new([], 0, false);
+        DlqCategorySnapshot latestSnapshot = new([],
+                                                 0,
+                                                 false,
+                                                 Schema:session.Schema);
         var scrollOffset = 0;
 
         await AnsiConsole.Live(new Text("Initializing..."))
@@ -98,7 +101,10 @@ public static class DlqScanSessionExtensions
         DateTimeOffset? beforeTime,
         string actionVerb)
     {
-        var finalSnapshot = DlqCategoryScanner.BuildCategorySnapshot(session.Cache, mergeSimilar);
+        var finalSnapshot = DlqCategoryScanner.BuildCategorySnapshot(session.Cache,
+                                                                     mergeSimilar,
+                                                                     session.Schema,
+                                                                     session.Resolver);
 
         if (session.Error != null)
         {
@@ -114,7 +120,8 @@ public static class DlqScanSessionExtensions
         DlqCategoryDisplay.DisplayTable(finalSnapshot.Categories,
                                         finalSnapshot.TotalMessageCount,
                                         output.Info,
-                                        output.Table);
+                                        output.Table,
+                                        session.Schema);
 
         Console.Write($"\nSelect categories to {actionVerb} (comma-separated numbers, 'all', or 'q' to quit): ");
         var input = output.ReadLine();
@@ -162,7 +169,7 @@ public static class DlqScanSessionExtensions
                             new Markup("[dim]Press 'x' to stop scanning and select categories[/]"));
         }
 
-        var (headers, allRows) = DlqCategoryDisplay.GenerateTableData(snapshot.Categories);
+        var (headers, allRows) = DlqCategoryDisplay.GenerateTableData(snapshot.Categories, snapshot.Schema);
         var rowList = allRows.ToList();
 
         var maxVisible = Math.Max(1, Console.WindowHeight - TableChromeLines);

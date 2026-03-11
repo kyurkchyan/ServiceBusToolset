@@ -1,6 +1,7 @@
 using Ardalis.Result;
 using Mediator;
 using ServiceBusToolset.Application.Common.ServiceBus.Models;
+using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.DumpDlq;
 using ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 using ServiceBusToolset.CLI.Common.Commands;
@@ -142,7 +143,11 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        var streamCommand = new StreamDlqCategoriesCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
+        var schema = CategorizationSchema.Parse(cliCommand.CategorizeBy);
+        var streamCommand = new StreamDlqCategoriesCommand(cliCommand.Namespace,
+                                                           target,
+                                                           cliCommand.MergeSimilar,
+                                                           schema);
         var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
         if (!sessionResult.IsSuccess)

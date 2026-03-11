@@ -23,8 +23,8 @@ public class DlqCategoryDisplayShould
         headers.ShouldBe(new[]
         {
             "#",
-            "Label",
-            "DeadLetterReason",
+            "#Subject",
+            "#DeadLetterReason",
             "Count"
         });
 
@@ -60,8 +60,8 @@ public class DlqCategoryDisplayShould
         headers.ShouldBe(new[]
         {
             "#",
-            "Label",
-            "DeadLetterReason",
+            "#Subject",
+            "#DeadLetterReason",
             "Count"
         });
         rows.ShouldBeEmpty();

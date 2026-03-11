@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace ServiceBusToolset.Application.DeadLetters.Common;
 
 public static class CategoryMerger
@@ -5,19 +7,21 @@ public static class CategoryMerger
     private const string Wildcard = "*";
     private const double MergeThreshold = 0.5;
 
-    public static CategoryMergeResult Merge(IReadOnlyList<DlqCategory> categories)
+    public static CategoryMergeResult Merge(IReadOnlyList<DlqCategory> categories,
+                                            CategorizationSchema? schema = null)
     {
         if (categories.Count == 0)
         {
             return new CategoryMergeResult([], new Dictionary<DlqCategoryKey, IReadOnlySet<DlqCategoryKey>>());
         }
 
+        var dimensionCount = (schema ?? CategorizationSchema.Default).DimensionCount;
+
         var tokenized = categories
-                        .Select(c => new TokenizedCategory(c.Label.Split(' ', StringSplitOptions.RemoveEmptyEntries),
-                                                           c.DeadLetterReason.Split(' ', StringSplitOptions.RemoveEmptyEntries),
+                        .Select(c => new TokenizedCategory(TokenizeDimensions(c, dimensionCount),
                                                            c))
                         .OrderByDescending(t => t.Original.Count)
-                        .ThenByDescending(t => t.LabelTokens.Length)
+                        .ThenByDescending(t => t.DimensionTokens.Sum(d => d.Length))
                         .ToList();
 
         var templates = new List<TemplateGroup>();
@@ -30,36 +34,51 @@ public static class CategoryMerger
             for (var i = 0; i < templates.Count; i++)
             {
                 var t = templates[i];
-                var labelLcs = ComputeLcs(t.LabelFrame, cat.LabelTokens);
-                var reasonLcs = ComputeLcs(t.ReasonFrame, cat.ReasonTokens);
 
-                var labelScore = Score(labelLcs.Length, t.LabelFrame.Length, cat.LabelTokens.Length);
-                var reasonScore = Score(reasonLcs.Length, t.ReasonFrame.Length, cat.ReasonTokens.Length);
-
-                if (labelScore >= MergeThreshold && reasonScore >= MergeThreshold)
+                if (t.DimensionFrames.Length != cat.DimensionTokens.Length)
                 {
-                    var combinedScore = labelScore + reasonScore;
-                    if (combinedScore > bestScore)
+                    continue;
+                }
+
+                var allAboveThreshold = true;
+                var combinedScore = 0.0;
+
+                for (var d = 0; d < dimensionCount; d++)
+                {
+                    var lcs = ComputeLcs(t.DimensionFrames[d], cat.DimensionTokens[d]);
+                    var score = Score(lcs.Length, t.DimensionFrames[d].Length, cat.DimensionTokens[d].Length);
+
+                    if (score < MergeThreshold)
                     {
-                        bestScore = combinedScore;
-                        bestMatch = i;
+                        allAboveThreshold = false;
+                        break;
                     }
+
+                    combinedScore += score;
+                }
+
+                if (allAboveThreshold && combinedScore > bestScore)
+                {
+                    bestScore = combinedScore;
+                    bestMatch = i;
                 }
             }
 
             if (bestMatch >= 0)
             {
                 var t = templates[bestMatch];
-                t.LabelFrame = ComputeLcs(t.LabelFrame, cat.LabelTokens);
-                t.ReasonFrame = ComputeLcs(t.ReasonFrame, cat.ReasonTokens);
+                for (var d = 0; d < dimensionCount; d++)
+                {
+                    t.DimensionFrames[d] = ComputeLcs(t.DimensionFrames[d], cat.DimensionTokens[d]);
+                }
+
                 t.Members.Add(cat);
             }
             else
             {
                 templates.Add(new TemplateGroup
                 {
-                    LabelFrame = cat.LabelTokens,
-                    ReasonFrame = cat.ReasonTokens,
+                    DimensionFrames = cat.DimensionTokens.Select(d => d.ToArray()).ToArray(),
                     Members = [cat]
                 });
             }
@@ -73,20 +92,19 @@ public static class CategoryMerger
             if (t.Members.Count == 1)
             {
                 var single = t.Members[0].Original;
-                var key = new DlqCategoryKey(single.Label, single.DeadLetterReason);
+                var key = single.ToKey();
                 mergedCategories.Add(single);
                 mergeMap[key] = new HashSet<DlqCategoryKey> { key };
                 continue;
             }
 
-            var totalFrameTokens = t.LabelFrame.Length + t.ReasonFrame.Length;
+            var totalFrameTokens = t.DimensionFrames.Sum(f => f.Length);
             if (totalFrameTokens < 1)
             {
-                // Safety: frame too small, dissolve into individual categories
                 foreach (var member in t.Members)
                 {
                     var orig = member.Original;
-                    var key = new DlqCategoryKey(orig.Label, orig.DeadLetterReason);
+                    var key = orig.ToKey();
                     mergedCategories.Add(orig);
                     mergeMap[key] = new HashSet<DlqCategoryKey> { key };
                 }
@@ -94,17 +112,22 @@ public static class CategoryMerger
                 continue;
             }
 
-            var labelTemplate = RenderTemplate(t.LabelFrame, t.Members.Select(m => m.LabelTokens).ToList());
-            var reasonTemplate = RenderTemplate(t.ReasonFrame, t.Members.Select(m => m.ReasonTokens).ToList());
+            var mergedValues = ImmutableArray.CreateBuilder<string>(dimensionCount);
+            for (var d = 0; d < dimensionCount; d++)
+            {
+                var template = RenderTemplate(t.DimensionFrames[d],
+                                              t.Members.Select(m => m.DimensionTokens[d]).ToList());
+                mergedValues.Add(template);
+            }
 
             var totalCount = t.Members.Sum(m => m.Original.Count);
-            var mergedKey = new DlqCategoryKey(labelTemplate, reasonTemplate);
-            mergedCategories.Add(new DlqCategory(labelTemplate, reasonTemplate, totalCount));
+            var mergedKey = new DlqCategoryKey(mergedValues.MoveToImmutable());
+            mergedCategories.Add(DlqCategory.FromKey(mergedKey, totalCount));
 
             var originals = new HashSet<DlqCategoryKey>();
             foreach (var member in t.Members)
             {
-                originals.Add(new DlqCategoryKey(member.Original.Label, member.Original.DeadLetterReason));
+                originals.Add(member.Original.ToKey());
             }
 
             mergeMap[mergedKey] = originals;
@@ -113,6 +136,18 @@ public static class CategoryMerger
         mergedCategories.Sort((a, b) => b.Count.CompareTo(a.Count));
 
         return new CategoryMergeResult(mergedCategories, mergeMap);
+    }
+
+    private static string[][] TokenizeDimensions(DlqCategory category, int dimensionCount)
+    {
+        var result = new string[dimensionCount][];
+        for (var i = 0; i < dimensionCount; i++)
+        {
+            var value = i < category.Values.Length ? category.Values[i] : "(none)";
+            result[i] = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        return result;
     }
 
     private static string[] ComputeLcs(string[] a, string[] b)
@@ -136,7 +171,6 @@ public static class CategoryMerger
             }
         }
 
-        // Backtrack to find the LCS
         var lcs = new List<string>();
         int x = m, y = n;
         while (x > 0 && y > 0)
@@ -166,7 +200,7 @@ public static class CategoryMerger
         var maxLen = Math.Max(frameLen, tokensLen);
         if (maxLen == 0)
         {
-            return 1.0; // Both empty — perfect match
+            return 1.0;
         }
 
         return (double)lcsLen / maxLen;
@@ -257,12 +291,11 @@ public static class CategoryMerger
         return positions;
     }
 
-    private sealed record TokenizedCategory(string[] LabelTokens, string[] ReasonTokens, DlqCategory Original);
+    private sealed record TokenizedCategory(string[][] DimensionTokens, DlqCategory Original);
 
     private sealed class TemplateGroup
     {
-        public string[] LabelFrame { get; set; } = [];
-        public string[] ReasonFrame { get; set; } = [];
+        public string[][] DimensionFrames { get; set; } = [];
         public List<TokenizedCategory> Members { get; set; } = [];
     }
 }

@@ -6,8 +6,13 @@ namespace ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 
 public sealed class DlqResubmitSession(ReactiveMessageCache<ServiceBusReceivedMessage, long> cache,
                                        IObservable<DlqCategorySnapshot> categoryStream,
-                                       ResubmitTracker resubmitTracker)
-    : DlqScanSession(cache, categoryStream)
+                                       ResubmitTracker resubmitTracker,
+                                       CategorizationSchema? schema = null,
+                                       CategoryPropertyResolver? resolver = null)
+    : DlqScanSession(cache,
+                     categoryStream,
+                     schema,
+                     resolver)
 {
     public ResubmitTracker ResubmitTracker { get; } = resubmitTracker;
 

@@ -144,7 +144,11 @@ public sealed class PurgeDlqCommandHandler(ISender mediator, IConsoleOutput outp
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        var streamCommand = new StreamDlqCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
+        var schema = CategorizationSchema.Parse(cliCommand.CategorizeBy);
+        var streamCommand = new StreamDlqCommand(cliCommand.Namespace,
+                                                 target,
+                                                 cliCommand.MergeSimilar,
+                                                 schema);
         var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
         if (!sessionResult.IsSuccess)

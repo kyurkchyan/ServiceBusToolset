@@ -71,6 +71,7 @@ public sealed class PurgeDlqMessagesCommandHandler(IServiceBusClientFactory clie
         await using var receiver = ReceiverFactory.CreateDlqReceiver(client,
                                                                      command.Target);
 
+        var resolver = new CategoryPropertyResolver();
         var totalDeleted = 0;
         var skippedSequenceNumbers = new HashSet<long>();
         var emptyBatches = 0;
@@ -92,7 +93,7 @@ public sealed class PurgeDlqMessagesCommandHandler(IServiceBusClientFactory clie
 
             foreach (var message in messages)
             {
-                if (ShouldPurge(message, command))
+                if (ShouldPurge(message, command, resolver))
                 {
                     toComplete.Add(message);
                 }
@@ -128,7 +129,9 @@ public sealed class PurgeDlqMessagesCommandHandler(IServiceBusClientFactory clie
         return Result.Success(new PurgeDlqResult(totalDeleted, skippedSequenceNumbers.Count));
     }
 
-    private static bool ShouldPurge(ServiceBusReceivedMessage message, PurgeDlqMessagesCommand command)
+    private static bool ShouldPurge(ServiceBusReceivedMessage message,
+                                    PurgeDlqMessagesCommand command,
+                                    CategoryPropertyResolver resolver)
     {
         if (command.BeforeTime.HasValue && message.EnqueuedTime >= command.BeforeTime.Value)
         {
@@ -137,7 +140,8 @@ public sealed class PurgeDlqMessagesCommandHandler(IServiceBusClientFactory clie
 
         if (command.CategoryFilter is { Count: > 0 })
         {
-            var key = DlqCategoryKey.FromMessage(message.Subject, message.DeadLetterReason);
+            var schema = command.Schema ?? CategorizationSchema.Default;
+            var key = DlqCategoryKey.FromMessage(message, schema, resolver);
             if (!command.CategoryFilter.Contains(key))
             {
                 return false;

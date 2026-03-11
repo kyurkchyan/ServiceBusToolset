@@ -10,32 +10,41 @@ public static class DlqCategoryScanner
 {
     public static DlqCategorySnapshot BuildCategorySnapshot(
         ReactiveMessageCache<ServiceBusReceivedMessage, long> cache,
-        bool mergeSimilar = false)
+        bool mergeSimilar = false,
+        CategorizationSchema? schema = null,
+        CategoryPropertyResolver? resolver = null)
     {
+        var effectiveSchema = schema ?? CategorizationSchema.Default;
+        var effectiveResolver = resolver ?? new CategoryPropertyResolver();
+
         var snapshot = cache.Snapshot();
         var categoryCounts = new Dictionary<DlqCategoryKey, int>();
 
         foreach (var msg in snapshot)
         {
-            var key = DlqCategoryKey.FromMessage(msg.Subject, msg.DeadLetterReason);
+            var key = DlqCategoryKey.FromMessage(msg, effectiveSchema, effectiveResolver);
             categoryCounts[key] = categoryCounts.GetValueOrDefault(key, 0) + 1;
         }
 
         var categories = categoryCounts
                          .OrderByDescending(kvp => kvp.Value)
-                         .Select(kvp => new DlqCategory(kvp.Key.Label, kvp.Key.DeadLetterReason, kvp.Value))
+                         .Select(kvp => DlqCategory.FromKey(kvp.Key, kvp.Value))
                          .ToList();
 
         if (!mergeSimilar)
         {
-            return new DlqCategorySnapshot(categories, snapshot.Count, cache.IsComplete);
+            return new DlqCategorySnapshot(categories,
+                                           snapshot.Count,
+                                           cache.IsComplete,
+                                           Schema:effectiveSchema);
         }
 
-        var mergeResult = CategoryMerger.Merge(categories);
+        var mergeResult = CategoryMerger.Merge(categories, effectiveSchema);
         return new DlqCategorySnapshot(mergeResult.MergedCategories,
                                        snapshot.Count,
                                        cache.IsComplete,
-                                       mergeResult);
+                                       mergeResult,
+                                       effectiveSchema);
     }
 
     public static async Task FeedCacheAsync(

@@ -4,13 +4,17 @@ using ServiceBusToolset.Application.Common.ServiceBus.Reactive;
 namespace ServiceBusToolset.Application.DeadLetters.Common;
 
 public class DlqScanSession(ReactiveMessageCache<ServiceBusReceivedMessage, long> cache,
-                            IObservable<DlqCategorySnapshot> categoryStream)
+                            IObservable<DlqCategorySnapshot> categoryStream,
+                            CategorizationSchema? schema = null,
+                            CategoryPropertyResolver? resolver = null)
     : IDisposable
 {
     private readonly CancellationTokenSource _scanCts = new();
 
     public ReactiveMessageCache<ServiceBusReceivedMessage, long> Cache { get; } = cache;
     public IObservable<DlqCategorySnapshot> CategoryStream { get; } = categoryStream;
+    public CategorizationSchema Schema { get; } = schema ?? CategorizationSchema.Default;
+    public CategoryPropertyResolver Resolver { get; } = resolver ?? new CategoryPropertyResolver();
     public TaskCompletionSource ScanCompletion { get; } = new();
     public long? TotalDlqCount { get; set; }
     public Exception? Error { get; set; }
@@ -35,7 +39,7 @@ public class DlqScanSession(ReactiveMessageCache<ServiceBusReceivedMessage, long
         IReadOnlySet<DlqCategoryKey> categoryKeys,
         DateTimeOffset? beforeTime)
     {
-        var key = DlqCategoryKey.FromMessage(message.Subject, message.DeadLetterReason);
+        var key = DlqCategoryKey.FromMessage(message, Schema, Resolver);
         if (!categoryKeys.Contains(key))
         {
             return false;

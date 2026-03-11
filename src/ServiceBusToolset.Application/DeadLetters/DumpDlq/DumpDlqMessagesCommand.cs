@@ -10,4 +10,5 @@ public sealed record DumpDlqMessagesCommand(string FullyQualifiedNamespace,
                                             string OutputFilePath,
                                             DateTimeOffset? BeforeTime = null,
                                             IReadOnlySet<DlqCategoryKey>? CategoryFilter = null,
-                                            IProgress<int>? Progress = null) : ICommand<Result<DlqDumpResult>>;
+                                            IProgress<int>? Progress = null,
+                                            CategorizationSchema? Schema = null) : ICommand<Result<DlqDumpResult>>;

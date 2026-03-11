@@ -10,4 +10,5 @@ public sealed record ResubmitDlqMessagesCommand(string FullyQualifiedNamespace,
                                                 string TargetEntity,
                                                 DateTimeOffset? BeforeTime = null,
                                                 IReadOnlySet<DlqCategoryKey>? CategoryFilter = null,
-                                                IProgress<(int Resubmitted, int Skipped)>? Progress = null) : ICommand<Result<ResubmitDlqResult>>;
+                                                IProgress<(int Resubmitted, int Skipped)>? Progress = null,
+                                                CategorizationSchema? Schema = null) : ICommand<Result<ResubmitDlqResult>>;
