@@ -75,8 +75,10 @@ Cross-cutting concerns go in `Common/` folders at the appropriate level:
 
 DLQ messages are categorized by configurable properties via `--categorize-by`. Default: `#Subject,#DeadLetterReason`.
 
-- `#PropertyName` — system property on `ServiceBusReceivedMessage` (e.g., `#DeadLetterReason`, `#ContentType`). Unrecognized names fall through to `ApplicationProperties`.
-- `$PropertyName` — deserialized JSON body property with dot notation for nesting (e.g., `$ErrorCode`, `$Product.Category.Name`).
+- `#PropertyName` — system property on `ServiceBusReceivedMessage` (e.g., `#DeadLetterReason`, `#ContentType`).
+  Unrecognized names fall through to `ApplicationProperties`.
+- `$PropertyName` — deserialized JSON body property with dot notation for nesting (e.g., `$ErrorCode`,
+  `$Product.Category.Name`).
 - Unresolved properties resolve to `"(none)"`.
 
 Key types in `DeadLetters/Common/`:
