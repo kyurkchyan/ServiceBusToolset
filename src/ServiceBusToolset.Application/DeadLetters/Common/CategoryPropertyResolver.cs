@@ -11,12 +11,12 @@ public sealed class CategoryPropertyResolver
     private readonly ConcurrentDictionary<long, JsonNode?> _bodyCache = new();
 
     /// <summary>
-            /// Resolves a property value from a Service Bus message based on the provided property reference.
-            /// </summary>
-            /// <param name="message">The Service Bus message to read the property from.</param>
-            /// <param name="propertyRef">Reference that specifies the property source (system or body) and the property path to resolve.</param>
-            /// <returns>The resolved property value as a string, or "(none)" if the property is missing or cannot be decoded.</returns>
-            public string ResolveProperty(ServiceBusReceivedMessage message, CategoryPropertyRef propertyRef) =>
+    /// Resolves a property value from a Service Bus message based on the provided property reference.
+    /// </summary>
+    /// <param name="message">The Service Bus message to read the property from.</param>
+    /// <param name="propertyRef">Reference that specifies the property source (system or body) and the property path to resolve.</param>
+    /// <returns>The resolved property value as a string, or "(none)" if the property is missing or cannot be decoded.</returns>
+    public string ResolveProperty(ServiceBusReceivedMessage message, CategoryPropertyRef propertyRef) =>
         propertyRef.Source == PropertySource.System
             ? ResolveSystemProperty(message, propertyRef.PropertyPath)
             : ResolveBodyProperty(message, propertyRef.PropertyPath);

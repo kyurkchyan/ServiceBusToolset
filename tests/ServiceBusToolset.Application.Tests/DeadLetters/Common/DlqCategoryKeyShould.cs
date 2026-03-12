@@ -73,7 +73,6 @@ public class DlqCategoryKeyShould
     /// <summary>
     /// Verifies that constructing a DlqCategoryKey from an ImmutableArray&lt;string&gt; preserves the number of values and their order.
     /// </summary>
-
     [Fact]
     public void CreateKey_WithImmutableArrayConstructor()
     {

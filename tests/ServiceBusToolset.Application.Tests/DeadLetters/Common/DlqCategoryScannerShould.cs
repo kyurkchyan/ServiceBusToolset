@@ -275,7 +275,6 @@ public class DlqCategoryScannerShould
     /// <remarks>
     /// Expects a total message count of 3 and two categories: one for tier "1" with count 2 and one for tier "2" with count 1.
     /// </remarks>
-
     [Fact]
     public void BuildCategorySnapshot_GroupsByCustomSchema()
     {
