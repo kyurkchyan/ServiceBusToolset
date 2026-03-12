@@ -76,7 +76,8 @@ public class DlqCategoryKeyShould
     public void CreateKey_WithImmutableArrayConstructor()
     {
         // Arrange & Act
-        var key = new DlqCategoryKey(ImmutableArray.Create("val1", "val2", "val3"));
+        ImmutableArray<string> values = ["val1", "val2", "val3"];
+        var key = new DlqCategoryKey(values);
 
         // Assert
         key.Values.Length.ShouldBe(3);
@@ -101,7 +102,8 @@ public class DlqCategoryKeyShould
     public void ReturnNoneForLabel_WhenValuesEmpty()
     {
         // Arrange & Act
-        var key = new DlqCategoryKey(ImmutableArray<string>.Empty);
+        ImmutableArray<string> empty = [];
+        var key = new DlqCategoryKey(empty);
 
         // Assert
         key.Label.ShouldBe("(none)");
@@ -176,7 +178,11 @@ public class DlqCategoryKeyShould
         // Arrange
         var message = ServiceBusReceivedMessageBuilder.Create()
                                                       .WithSubject("OrderProcessor")
-                                                      .WithJsonBody(new { tier = 1, error = new { code = "E001" } })
+                                                      .WithJsonBody(new
+                                                      {
+                                                          tier = 1,
+                                                          error = new { code = "E001" }
+                                                      })
                                                       .Build();
         var schema = CategorizationSchema.Parse(["#Subject", "$tier", "$error.code"]);
         var resolver = new CategoryPropertyResolver();

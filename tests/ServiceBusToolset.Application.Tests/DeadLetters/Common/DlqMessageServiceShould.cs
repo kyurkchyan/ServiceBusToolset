@@ -372,4 +372,155 @@ public class DlqMessageServiceShould
         // Assert
         result.ShouldBeEmpty(); // Case-sensitive comparison
     }
+
+    // --- Schema-aware filtering ---
+
+    [Fact]
+    public void FilterByBodyProperty_WhenSchemaUsesBodyProperty()
+    {
+        // Arrange
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-1")
+                                            .WithJsonBody(new
+                                            {
+                                                tier = 1,
+                                                errorCode = "E001"
+                                            })
+                                            .WithSequenceNumber(1)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-2")
+                                            .WithJsonBody(new
+                                            {
+                                                tier = 2,
+                                                errorCode = "E002"
+                                            })
+                                            .WithSequenceNumber(2)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-3")
+                                            .WithJsonBody(new
+                                            {
+                                                tier = 1,
+                                                errorCode = "E003"
+                                            })
+                                            .WithSequenceNumber(3)
+                                            .Build()
+        };
+
+        var schema = CategorizationSchema.Parse(["$tier"]);
+        var resolver = new CategoryPropertyResolver();
+        var categories = new HashSet<DlqCategoryKey> { new("1") };
+
+        // Act
+        var result = DlqMessageService.FilterByCategories(messages,
+                                                          categories,
+                                                          schema,
+                                                          resolver);
+
+        // Assert
+        result.Count.ShouldBe(2);
+        result.Select(m => m.MessageId).ShouldBe(["msg-1", "msg-3"]);
+    }
+
+    [Fact]
+    public void FilterByMixedProperties_WhenSchemaHasSystemAndBody()
+    {
+        // Arrange
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-1")
+                                            .WithDeadLetterReason("MaxDeliveryCountExceeded")
+                                            .WithJsonBody(new { errorCode = "E001" })
+                                            .WithSequenceNumber(1)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-2")
+                                            .WithDeadLetterReason("MaxDeliveryCountExceeded")
+                                            .WithJsonBody(new { errorCode = "E002" })
+                                            .WithSequenceNumber(2)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-3")
+                                            .WithDeadLetterReason("TTLExpired")
+                                            .WithJsonBody(new { errorCode = "E001" })
+                                            .WithSequenceNumber(3)
+                                            .Build()
+        };
+
+        var schema = CategorizationSchema.Parse(["#DeadLetterReason", "$errorCode"]);
+        var resolver = new CategoryPropertyResolver();
+        var categories = new HashSet<DlqCategoryKey> { new("MaxDeliveryCountExceeded", "E001") };
+
+        // Act
+        var result = DlqMessageService.FilterByCategories(messages,
+                                                          categories,
+                                                          schema,
+                                                          resolver);
+
+        // Assert
+        result.Count.ShouldBe(1);
+        result.Single().MessageId.ShouldBe("msg-1");
+    }
+
+    [Fact]
+    public void FilterByNestedBodyProperty_WhenSchemaUsesNestedPath()
+    {
+        // Arrange
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-1")
+                                            .WithJsonBody(new { error = new { severity = "critical" } })
+                                            .WithSequenceNumber(1)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-2")
+                                            .WithJsonBody(new { error = new { severity = "warning" } })
+                                            .WithSequenceNumber(2)
+                                            .Build()
+        };
+
+        var schema = CategorizationSchema.Parse(["$error.severity"]);
+        var resolver = new CategoryPropertyResolver();
+        var categories = new HashSet<DlqCategoryKey> { new("critical") };
+
+        // Act
+        var result = DlqMessageService.FilterByCategories(messages,
+                                                          categories,
+                                                          schema,
+                                                          resolver);
+
+        // Assert
+        result.Count.ShouldBe(1);
+        result.Single().MessageId.ShouldBe("msg-1");
+    }
+
+    [Fact]
+    public void UseDefaultSchema_WhenSchemaIsNull()
+    {
+        // Arrange — same test as ReturnFilteredMessages_WhenCategoriesMatch but explicit null schema
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-1")
+                                            .WithSubject("OrderProcessor")
+                                            .WithDeadLetterReason("MaxDeliveryCountExceeded")
+                                            .Build()
+        };
+
+        var categories = new HashSet<DlqCategoryKey> { DlqCategoryKey.FromMessage("OrderProcessor", "MaxDeliveryCountExceeded") };
+
+        // Act
+        var result = DlqMessageService.FilterByCategories(messages,
+                                                          categories,
+                                                          null,
+                                                          null);
+
+        // Assert
+        result.Count.ShouldBe(1);
+    }
 }

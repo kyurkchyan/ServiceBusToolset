@@ -24,7 +24,7 @@ public class DlqCategoryShould
     public void CreateWithImmutableArrayConstructor()
     {
         // Arrange & Act
-        var category = new DlqCategory(ImmutableArray.Create("val1", "val2", "val3"), 10);
+        var category = new DlqCategory(["val1", "val2", "val3"], 10);
 
         // Assert
         category.Values.Length.ShouldBe(3);
@@ -49,7 +49,7 @@ public class DlqCategoryShould
     public void ReturnNoneForReason_WhenSingleValue()
     {
         // Arrange & Act
-        var category = new DlqCategory(ImmutableArray.Create("OnlyLabel"), 5);
+        var category = new DlqCategory(["OnlyLabel"], 5);
 
         // Assert
         category.Label.ShouldBe("OnlyLabel");
@@ -75,7 +75,7 @@ public class DlqCategoryShould
     public void ConvertToKey_WithNDimensions()
     {
         // Arrange
-        var category = new DlqCategory(ImmutableArray.Create("a", "b", "c"), 7);
+        var category = new DlqCategory(["a", "b", "c"], 7);
 
         // Act
         var key = category.ToKey();
@@ -106,7 +106,7 @@ public class DlqCategoryShould
     public void RoundTrip_ThroughToKeyAndFromKey()
     {
         // Arrange
-        var original = new DlqCategory(ImmutableArray.Create("x", "y", "z"), 99);
+        var original = new DlqCategory(["x", "y", "z"], 99);
 
         // Act
         var key = original.ToKey();
