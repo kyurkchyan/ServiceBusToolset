@@ -30,6 +30,8 @@ public class DlqScanSession : IDisposable
 {
     public ReactiveMessageCache<ServiceBusReceivedMessage, long> Cache { get; }
     public IObservable<DlqCategorySnapshot> CategoryStream { get; }
+    public CategorizationSchema Schema { get; }
+    public CategoryPropertyResolver Resolver { get; }
     public TaskCompletionSource ScanCompletion { get; }
     public long TotalDlqCount { get; set; }
     public Exception? Error { get; set; }
@@ -43,11 +45,11 @@ public class DlqScanSession : IDisposable
 }
 ```
 
-The `virtual MatchesFilter` is the extension point. `DlqResubmitSession` overrides it to exclude already-resubmitted messages via `ResubmitTracker`. The other three commands use the base implementation which accepts everything.
+The session carries a `CategorizationSchema` (default: `#Subject,#DeadLetterReason`) and a `CategoryPropertyResolver` for schema-aware categorization. The `virtual MatchesFilter` is the extension point. `DlqResubmitSession` overrides it to exclude already-resubmitted messages via `ResubmitTracker`. The other three commands use the base implementation which accepts everything.
 
 **`DlqCategoryScanner`** — static class with the two core operations extracted from `StreamDlqCategoriesCommandHandler`:
 
-- `BuildCategorySnapshot(cache, mergeSimilar)` — groups cache contents by Subject + DeadLetterReason, optionally runs `CategoryMerger.Merge`, returns a `DlqCategorySnapshot`.
+- `BuildCategorySnapshot(cache, mergeSimilar, schema?, resolver?)` — groups cache contents by the configured `CategorizationSchema` properties (default: Subject + DeadLetterReason), optionally runs `CategoryMerger.Merge`, returns a `DlqCategorySnapshot`.
 - `FeedCacheAsync(clientFactory, namespace, target, cache, session, messageFilter?, ct)` — background pagination loop. The key generalization: `messageFilter` is now an optional `Func<ServiceBusReceivedMessage, bool>?` instead of a hardcoded `ResubmitTracker` check. Resubmit passes `m => !tracker.WasResubmitted(m.MessageId)`; everyone else passes `null`.
 
 **`StreamDlqCommand` / `StreamDlqCommandHandler`** — a new shared Mediator command that creates a plain `DlqScanSession`, starts the background feed via `Task.Run`, and returns the session immediately. The existing `StreamDlqCategoriesCommand` still exists for resubmit, creating a `DlqResubmitSession` with its tracker-aware filter.
@@ -59,7 +61,8 @@ public sealed record DlqCategorySnapshot(
     IReadOnlyList<DlqCategory> Categories,
     int TotalMessageCount,
     bool IsComplete,
-    CategoryMergeResult? MergeResult = null);
+    CategoryMergeResult? MergeResult = null,
+    CategorizationSchema? Schema = null);
 ```
 
 ### CLI Layer: Shared Interactive Flow
@@ -267,9 +270,12 @@ The `infra/test/` directory contains Bicep templates and PowerShell scripts for 
 ```
 Application Layer
 ├── DeadLetters/Common/
+│   ├── CategoryPropertyRef.cs         ← shared: #system / $body property reference
+│   ├── CategorizationSchema.cs        ← shared: configurable categorization dimensions
+│   ├── CategoryPropertyResolver.cs    ← shared: resolves properties from messages with body cache
 │   ├── DlqCategoryScanner.cs          ← shared: BuildCategorySnapshot + FeedCacheAsync
 │   ├── DlqCategorySnapshot.cs         ← shared: snapshot record
-│   ├── DlqScanSession.cs             ← shared: base session (cache + stream + signals)
+│   ├── DlqScanSession.cs             ← shared: base session (cache + stream + signals + schema)
 │   └── StreamDlq.cs                   ← shared: Mediator command for dump/purge/diagnose
 │
 ├── DeadLetters/DumpDlq/

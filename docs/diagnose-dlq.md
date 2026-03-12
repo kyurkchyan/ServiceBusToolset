@@ -22,6 +22,7 @@ dotnet run -- diagnose-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscript
 | `--max-messages` | | Maximum number of messages to diagnose (default: 1000) |
 | `--interactive` | `-i` | Interactive mode: view and select categories to diagnose |
 | `--merge-similar` | | Merge similar DLQ categories using LCS-based clustering (interactive mode only) |
+| `--categorize-by` | | Properties to categorize by. `#Prop` for system, `$Prop` for body. Default: `#Subject,#DeadLetterReason` |
 | `--verbose` | `-v` | Enable verbose output |
 
 ## Getting the App Insights Resource ID

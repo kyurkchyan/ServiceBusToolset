@@ -67,6 +67,10 @@ sbtools dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o dlq-message
 # Interactive mode - select which message categories to dump
 sbtools dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o dlq-messages.json -i
 
+# Categorize by custom properties (system #Prop, body $Prop)
+sbtools dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o dlq-messages.json -i \
+  --categorize-by "#DeadLetterReason,$ErrorCode"
+
 # Diagnose DLQ messages using Application Insights
 sbtools diagnose-dlq -n mynamespace.servicebus.windows.net -q myqueue \
   -a "/subscriptions/.../resourceGroups/.../providers/microsoft.insights/components/my-app-insights"

@@ -1,54 +1,62 @@
 namespace ServiceBusToolset.Application.DeadLetters.Common;
 
-/// <summary>
-/// Static helper for displaying DLQ category tables.
-/// </summary>
 public static class DlqCategoryDisplay
 {
     /// <summary>
-    /// Generates table data for displaying DLQ categories.
+    /// Generate table headers and rows describing the provided dead-letter categories according to a categorization schema.
     /// </summary>
-    /// <param name="categories">The categories to display</param>
-    /// <returns>Tuple of headers and rows for the table</returns>
+    /// <param name="categories">The sequence of DLQ categories to include as table rows.</param>
+    /// <param name="schema">Optional schema that defines which category properties appear as columns; uses <c>CategorizationSchema.Default</c> when null.</param>
+    /// <returns>
+    /// A tuple where:
+    /// - <c>Headers</c> is an array of column names (starts with "#" and the schema's property display names, ends with "Count"),
+    /// - <c>Rows</c> is an enumerable of string arrays, each representing a table row with the row index, property values (or "(none)"), and the category count.
+    /// </returns>
     public static (string[] Headers, IEnumerable<string[]> Rows) GenerateTableData(
-        IEnumerable<DlqCategory> categories)
+        IEnumerable<DlqCategory> categories,
+        CategorizationSchema? schema = null)
     {
-        var headers = new[]
-        {
-            "#",
-            "Label",
-            "DeadLetterReason",
-            "Count"
-        };
+        var effectiveSchema = schema ?? CategorizationSchema.Default;
 
-        var rows = categories.Select((cat, index) => new[]
+        var headers = new List<string> { "#" };
+        headers.AddRange(effectiveSchema.Properties.Select(p => p.DisplayName));
+        headers.Add("Count");
+
+        var rows = categories.Select((cat, index) =>
         {
-            (index + 1).ToString(),
-            cat.Label.ReplaceLineEndings(" "),
-            cat.DeadLetterReason.ReplaceLineEndings(" "),
-            cat.Count.ToString()
+            var row = new List<string> { (index + 1).ToString() };
+            for (var i = 0; i < effectiveSchema.DimensionCount; i++)
+            {
+                var value = i < cat.Values.Length ? cat.Values[i] : "(none)";
+                row.Add(value.ReplaceLineEndings(" "));
+            }
+
+            row.Add(cat.Count.ToString());
+            return row.ToArray();
         });
 
-        return (headers, rows);
+        return (headers.ToArray(), rows);
     }
 
     /// <summary>
-    /// Displays a category table using the provided output actions.
+    /// Render a dead-letter category summary table using the provided output actions.
     /// </summary>
-    /// <param name="categories">The categories to display</param>
-    /// <param name="totalCount">The total message count</param>
-    /// <param name="writeLine">Action to write a line of text</param>
-    /// <param name="writeTable">Action to write a table (headers, rows)</param>
+    /// <param name="categories">Sequence of dead-letter categories to include in the table.</param>
+    /// <param name="totalCount">Total number of messages represented by the categories.</param>
+    /// <param name="writeLine">Action used to write single lines of text (e.g., headings and totals).</param>
+    /// <param name="writeTable">Action used to render the table; receives the headers and the rows.</param>
+    /// <param name="schema">Optional categorization schema that defines table columns; defaults to <see cref="CategorizationSchema.Default"/> when null.</param>
     public static void DisplayTable(
         IEnumerable<DlqCategory> categories,
         int totalCount,
         Action<string> writeLine,
-        Action<IEnumerable<string>, IEnumerable<string[]>> writeTable)
+        Action<IEnumerable<string>, IEnumerable<string[]>> writeTable,
+        CategorizationSchema? schema = null)
     {
         writeLine("");
         writeLine("Dead Letter Summary:");
 
-        var (headers, rows) = GenerateTableData(categories);
+        var (headers, rows) = GenerateTableData(categories, schema);
         writeTable(headers, rows);
         writeLine($"Total: {totalCount} messages");
     }

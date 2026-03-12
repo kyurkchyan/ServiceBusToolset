@@ -1,8 +1,8 @@
-# Smart Category Merging for DLQ Resubmission
+# Smart Category Merging for DLQ Commands
 
 ## The Problem
 
-When working with Azure Service Bus dead-letter queues (DLQ) interactively, messages are grouped by their `Subject` (label) and `DeadLetterReason` into categories. This works well when error messages are static:
+When working with Azure Service Bus dead-letter queues (DLQ) interactively, messages are grouped by configurable properties (default: `Subject` and `DeadLetterReason`) into categories. This works well when error messages are static:
 
 | # | Label                | Dead Letter Reason         | Count |
 |---|----------------------|---------------------------|-------|
@@ -49,19 +49,19 @@ This handles **variable-length parameters** (e.g., multi-word names) that fixed-
 
 ### Algorithm Steps
 
-1. **Tokenize** each category's Label and DeadLetterReason by whitespace
-2. **Sort** categories by count descending (high-frequency categories form better initial templates), then by token count descending
+1. **Tokenize** each category's N dimension values by whitespace (default 2 dimensions: Subject and DeadLetterReason; configurable via `--categorize-by`)
+2. **Sort** categories by count descending (high-frequency categories form better initial templates), then by total token count descending
 3. **Greedy clustering**: For each category C:
-   - For each existing template T, compute `LCS(T.labelFrame, C.labelTokens)` and `LCS(T.reasonFrame, C.reasonTokens)`
-   - Score each field: `score = lcsLen / max(frameLen, tokensLen)`
-   - Match if **both** `labelScore >= 0.5` **and** `reasonScore >= 0.5`
-   - Pick the best-scoring match above threshold
-   - If matched: shrink T's frames to the new LCS, add C to T's group
+   - For each existing template T, compute `LCS(T.dimensionFrames[d], C.dimensionTokens[d])` for each dimension d
+   - Score each dimension: `score = lcsLen / max(frameLen, tokensLen)`
+   - Match if **all** dimension scores `>= 0.5`
+   - Pick the best-scoring match above threshold (sum of all dimension scores)
+   - If matched: shrink T's frames per dimension to the new LCS, add C to T's group
    - If not matched: create a new singleton template from C
 4. **Post-processing**:
    - Templates with 1 member → no merging, emit as-is
-   - Safety rule: frame must have ≥ 1 token (combined label + reason) to merge
-5. **Render** display templates by analyzing gap positions across all members
+   - Safety rule: frame must have ≥ 1 token (combined across all dimensions) to merge
+5. **Render** display templates per dimension by analyzing gap positions across all members
 
 ### Scoring
 
@@ -127,10 +127,15 @@ Original categories          Merged categories         User selects
                             └────────────────────┘
 ```
 
+## Interaction with `--categorize-by`
+
+The merger works with any number of dimensions. When using `--categorize-by "#DeadLetterReason,$ErrorCode"`, the algorithm tokenizes and scores each of those 2 dimensions independently. All dimensions must score above the 0.5 threshold for a merge to occur.
+
 ## Files
 
-- `CategoryMerger.cs` — Static utility with LCS-based `Merge` algorithm
+- `CategoryMerger.cs` — Static utility with N-dimension LCS-based `Merge` algorithm
 - `CategoryMergeResult.cs` — Result record with `ExpandKeys` method
+- `CategorizationSchema.cs` — Defines which properties form the dimensions
 - `StreamDlqCategories.cs` — Threading the `MergeSimilar` flag through command → snapshot
-- `ResubmitDlqCommandHandler.cs` — Wiring up key expansion in the interactive flow
-- `ResubmitDlqCliCommand.cs` — The `--merge-similar` CLI option
+- All 4 CLI command handlers — Wiring up key expansion in the interactive flow
+- All 4 CLI commands — The `--merge-similar` and `--categorize-by` options

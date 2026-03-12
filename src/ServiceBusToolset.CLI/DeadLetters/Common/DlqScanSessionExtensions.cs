@@ -9,12 +9,22 @@ public static class DlqScanSessionExtensions
 {
     private const int TableChromeLines = 12;
 
+    /// <summary>
+    /// Run the interactive dead-letter queue (DLQ) scanning UI for a session and handle user input to control scrolling and stop the scan.
+    /// </summary>
+    /// <param name="session">The DLQ scan session providing snapshots, scan lifecycle, and schema information.</param>
+    /// <param name="output">Console output handlers used to render the UI and read user input.</param>
+    /// <param name="entityDescription">A short description of the entity being scanned, shown in the UI header.</param>
+    /// <returns>A task that completes after the scanning phase finishes and the session has been stopped.</returns>
     public static async Task RunScanningPhaseAsync(
         this DlqScanSession session,
         IConsoleOutput output,
         string entityDescription)
     {
-        DlqCategorySnapshot latestSnapshot = new([], 0, false);
+        DlqCategorySnapshot latestSnapshot = new([],
+                                                 0,
+                                                 false,
+                                                 Schema:session.Schema);
         var scrollOffset = 0;
 
         await AnsiConsole.Live(new Text("Initializing..."))
@@ -91,6 +101,18 @@ public static class DlqScanSessionExtensions
                          });
     }
 
+    /// <summary>
+    /// Displays available DLQ categories, prompts the user to choose one or more categories, and returns the selected messages for interactive processing.
+    /// </summary>
+    /// <param name="session">The current DLQ scan session providing caches, schema, resolver and snapshot access.</param>
+    /// <param name="output">Console output and input handlers used to render the table and read user input.</param>
+    /// <param name="mergeSimilar">If true, collapse similar categories together before presenting choices.</param>
+    /// <param name="beforeTime">If provided, only include messages with timestamps earlier than this value.</param>
+    /// <param name="actionVerb">Label used in the prompt describing the action (e.g., "inspect", "reprocess").</param>
+    /// <returns>
+    /// An InteractiveCategorySelection containing the messages and the number of selected categories, or null if the operation was cancelled,
+    /// no categories exist, no valid categories were selected, or no messages match the selected categories.
+    /// </returns>
     public static InteractiveCategorySelection? GetCategorySelection(
         this DlqScanSession session,
         IConsoleOutput output,
@@ -98,7 +120,10 @@ public static class DlqScanSessionExtensions
         DateTimeOffset? beforeTime,
         string actionVerb)
     {
-        var finalSnapshot = DlqCategoryScanner.BuildCategorySnapshot(session.Cache, mergeSimilar);
+        var finalSnapshot = DlqCategoryScanner.BuildCategorySnapshot(session.Cache,
+                                                                     mergeSimilar,
+                                                                     session.Schema,
+                                                                     session.Resolver);
 
         if (session.Error != null)
         {
@@ -114,7 +139,8 @@ public static class DlqScanSessionExtensions
         DlqCategoryDisplay.DisplayTable(finalSnapshot.Categories,
                                         finalSnapshot.TotalMessageCount,
                                         output.Info,
-                                        output.Table);
+                                        output.Table,
+                                        session.Schema);
 
         Console.Write($"\nSelect categories to {actionVerb} (comma-separated numbers, 'all', or 'q' to quit): ");
         var input = output.ReadLine();
@@ -146,6 +172,14 @@ public static class DlqScanSessionExtensions
         return new InteractiveCategorySelection(messages, selection.SelectedCategoryCount);
     }
 
+    /// <summary>
+    /// Constructs a renderable view representing the current DLQ scanning state for the specified entity.
+    /// </summary>
+    /// <param name="snapshot">Current DLQ category snapshot containing categories, totals, and schema.</param>
+    /// <param name="entityDescription">Human-readable description of the entity being scanned shown in the header.</param>
+    /// <param name="totalDlqCount">Optional overall DLQ message count used to display "peeked from" information when available.</param>
+    /// <param name="scrollOffset">Zero-based row offset used to determine which table rows are visible (scroll position).</param>
+    /// <returns>An <see cref="IRenderable"/> that displays either a scanning message when no categories exist or a paged table of category rows with totals and scrolling hints.</returns>
     private static IRenderable BuildScanningRenderable(
         DlqCategorySnapshot snapshot,
         string entityDescription,
@@ -162,7 +196,7 @@ public static class DlqScanSessionExtensions
                             new Markup("[dim]Press 'x' to stop scanning and select categories[/]"));
         }
 
-        var (headers, allRows) = DlqCategoryDisplay.GenerateTableData(snapshot.Categories);
+        var (headers, allRows) = DlqCategoryDisplay.GenerateTableData(snapshot.Categories, snapshot.Schema);
         var rowList = allRows.ToList();
 
         var maxVisible = Math.Max(1, Console.WindowHeight - TableChromeLines);

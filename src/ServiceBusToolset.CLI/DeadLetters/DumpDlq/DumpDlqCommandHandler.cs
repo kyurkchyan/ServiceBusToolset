@@ -130,13 +130,34 @@ public sealed class DumpDlqCommandHandler(ISender mediator, IConsoleOutput outpu
         return Result.Success(Unit.Value);
     }
 
+    /// <summary>
+    /// Runs an interactive session to scan and categorize dead-letter messages, lets the user select categories, and dumps the selected messages to a file.
+    /// </summary>
+    /// <param name="cliCommand">CLI command options controlling namespace, categorization, merging, filters, and output file.</param>
+    /// <param name="target">The Service Bus entity target (queue or subscription) to operate on.</param>
+    /// <param name="entityDescription">Human-readable description of the target entity used for output messages.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation of the operation.</param>
+    /// <returns>`Result&lt;Unit&gt;` with success when the operation completes or the user cancels the dump selection; otherwise an error result describing the failure.</returns>
     private async Task<Result<Unit>> ExecuteInteractiveDumpAsync(
         DumpDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        var streamCommand = new StreamDlqCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
+        CategorizationSchema schema;
+        try
+        {
+            schema = CategorizationSchema.Parse(cliCommand.CategorizeBy);
+        }
+        catch (ArgumentException ex)
+        {
+            return Result.Invalid(new ValidationError(ex.Message));
+        }
+
+        var streamCommand = new StreamDlqCommand(cliCommand.Namespace,
+                                                 target,
+                                                 cliCommand.MergeSimilar,
+                                                 schema);
         var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
         if (!sessionResult.IsSuccess)

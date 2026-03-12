@@ -12,4 +12,5 @@ public sealed record DiagnoseDlqCommand(string FullyQualifiedNamespace,
                                         DateTimeOffset? BeforeTime = null,
                                         IReadOnlySet<DlqCategoryKey>? CategoryFilter = null,
                                         IProgress<int>? Progress = null,
-                                        IProgress<(int Current, int Total)>? BatchProgress = null) : ICommand<Result<DiagnoseDlqResult>>;
+                                        IProgress<(int Current, int Total)>? BatchProgress = null,
+                                        CategorizationSchema? Schema = null) : ICommand<Result<DiagnoseDlqResult>>;

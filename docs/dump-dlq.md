@@ -1,6 +1,7 @@
 # dump-dlq
 
-Export DLQ messages to a JSON file. This is a non-destructive operation that uses peek to read messages without removing them from the queue.
+Export DLQ messages to a JSON file. This is a non-destructive operation that uses peek to read messages without removing
+them from the queue.
 
 ## Synopsis
 
@@ -10,18 +11,19 @@ dotnet run -- dump-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscription>
 
 ## Options
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--namespace` | `-n` | **(Required)** Fully qualified Service Bus namespace |
-| `--queue` | `-q` | Queue name |
-| `--topic` | `-t` | Topic name (requires `--subscription`) |
-| `--subscription` | `-s` | Subscription name (requires `--topic`) |
-| `--output` | `-o` | Output JSON file path (required unless `--dry-run`) |
-| `--before` | | Only include messages enqueued before this UTC datetime (ISO 8601) |
-| `--dry-run` | | Preview message count without writing to file |
-| `--interactive` | `-i` | Interactive mode: view and select categories to dump |
-| `--merge-similar` | | Merge similar DLQ categories using LCS-based clustering (interactive mode only) |
-| `--verbose` | `-v` | Enable verbose output |
+| Option            | Short | Description                                                                                              |
+|-------------------|-------|----------------------------------------------------------------------------------------------------------|
+| `--namespace`     | `-n`  | **(Required)** Fully qualified Service Bus namespace                                                     |
+| `--queue`         | `-q`  | Queue name                                                                                               |
+| `--topic`         | `-t`  | Topic name (requires `--subscription`)                                                                   |
+| `--subscription`  | `-s`  | Subscription name (requires `--topic`)                                                                   |
+| `--output`        | `-o`  | Output JSON file path (required unless `--dry-run`)                                                      |
+| `--before`        |       | Only include messages enqueued before this UTC datetime (ISO 8601)                                       |
+| `--dry-run`       |       | Preview message count without writing to file                                                            |
+| `--interactive`   | `-i`  | Interactive mode: view and select categories to dump                                                     |
+| `--merge-similar` |       | Merge similar DLQ categories using LCS-based clustering (interactive mode only)                          |
+| `--categorize-by` |       | Properties to categorize by. `#Prop` for system, `$Prop` for body. Default: `#Subject,#DeadLetterReason` |
+| `--verbose`       | `-v`  | Enable verbose output                                                                                    |
 
 ## Examples
 
@@ -57,19 +59,16 @@ dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o old-m
 
 ### Interactive Mode
 
-View messages grouped by Label and DeadLetterReason, then select which to dump:
+View messages grouped by category properties, then select which to dump:
 
 ```bash
 dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o selected.json -i
 ```
 
 ```
-Analyzing DLQ for queue 'myqueue'...
-Peeked 1,523 messages...
-
 Dead Letter Summary:
 +---+---------------------+--------------------------------+-------+
-| # | Label               | DeadLetterReason               | Count |
+| # | #Subject            | #DeadLetterReason              | Count |
 +---+---------------------+--------------------------------+-------+
 | 1 | OrderCreated        | MaxDeliveryCountExceeded       |   847 |
 | 2 | PaymentProcessed    | MaxDeliveryCountExceeded       |   412 |
@@ -83,14 +82,42 @@ Dumping 1,045 messages from 2 categories...
 Dumped 1,045 messages to 'selected.json'
 ```
 
+### Custom Categorization
+
+Categorize by any combination of system properties (`#Prop`) and JSON body properties (`$Prop`):
+
+```bash
+# Categorize by dead letter reason only
+dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o output.json -i \
+  --categorize-by "#DeadLetterReason"
+
+# Categorize by dead letter reason and a body property
+dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o output.json -i \
+  --categorize-by '#DeadLetterReason,$ErrorCode'
+
+# Nested body properties use dot notation
+dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o output.json -i \
+  --categorize-by '#Subject,$Product.Category'
+```
+
+**Property syntax:**
+
+| Prefix | Source                                                               | Example                                                           |
+|--------|----------------------------------------------------------------------|-------------------------------------------------------------------|
+| `#`    | System property on `ServiceBusReceivedMessage`                       | `#Subject`, `#DeadLetterReason`, `#ContentType`, `#CorrelationId` |
+| `#`    | Falls back to `ApplicationProperties` if not a known system property | `#custom-header`                                                  |
+| `$`    | Deserialized JSON body property                                      | `$ErrorCode`, `$Product.Category.Name`                            |
+
+Unresolved properties (missing from message or body) display as `(none)`.
+
 **Selection options:**
 
-| Input | Action |
-|-------|--------|
-| `1,3,5` | Select specific categories |
-| `1-5` | Select a range |
-| `all` / `a` | Select all categories |
-| `q` / empty | Quit without dumping |
+| Input       | Action                     |
+|-------------|----------------------------|
+| `1,3,5`     | Select specific categories |
+| `1-5`       | Select a range             |
+| `all` / `a` | Select all categories      |
+| `q` / empty | Quit without dumping       |
 
 ## Output Format
 

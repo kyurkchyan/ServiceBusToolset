@@ -700,4 +700,109 @@ public class CategoryMergerShould
         result.MergedCategories[0].Label.ShouldBe("Failed to process entity *");
         result.MergedCategories[0].Count.ShouldBe(50);
     }
+
+    // Category K: N-dimensional merging with custom schema
+
+    [Fact]
+    public void MergeNDimensionalCategories_WhenSchemaHasThreeDimensions()
+    {
+        // Arrange
+        var schema = CategorizationSchema.Parse(["#Subject", "#DeadLetterReason", "$tier"]);
+        var categories = new List<DlqCategory>
+        {
+            new(["Error A", Reason, "1"], 1),
+            new(["Error B", Reason, "1"], 1)
+        };
+
+        // Act
+        var result = CategoryMerger.Merge(categories, schema);
+
+        // Assert
+        result.MergedCategories.Count.ShouldBe(1);
+        result.MergedCategories[0].Values[0].ShouldBe("Error *");
+        result.MergedCategories[0].Values[1].ShouldBe(Reason);
+        result.MergedCategories[0].Values[2].ShouldBe("1");
+        result.MergedCategories[0].Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void KeepSeparate_WhenOneDimensionDiffersSignificantly()
+    {
+        // Arrange — same label pattern but different third dimension
+        var schema = CategorizationSchema.Parse(["#Subject", "#DeadLetterReason", "$tier"]);
+        var categories = new List<DlqCategory>
+        {
+            new(["Error A", Reason, "production"], 5),
+            new(["Error B", Reason, "staging"], 3)
+        };
+
+        // Act
+        var result = CategoryMerger.Merge(categories, schema);
+
+        // Assert — should NOT merge because third dimension ("production" vs "staging") scores below threshold
+        result.MergedCategories.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void MergeSingleDimension_WhenSchemaHasOneDimension()
+    {
+        // Arrange
+        var schema = CategorizationSchema.Parse(["#DeadLetterReason"]);
+        var categories = new List<DlqCategory>
+        {
+            new(["Retry after 3 attempts"], 5),
+            new(["Retry after 5 attempts"], 3)
+        };
+
+        // Act
+        var result = CategoryMerger.Merge(categories, schema);
+
+        // Assert
+        result.MergedCategories.Count.ShouldBe(1);
+        result.MergedCategories[0].Values[0].ShouldBe("Retry after * attempts");
+        result.MergedCategories[0].Count.ShouldBe(8);
+    }
+
+    [Fact]
+    public void BuildCorrectMergeMap_ForNDimensionalMerge()
+    {
+        // Arrange
+        var schema = CategorizationSchema.Parse(["#Subject", "$tier"]);
+        var categories = new List<DlqCategory>
+        {
+            new(["Error A", "1"], 1),
+            new(["Error B", "1"], 2)
+        };
+
+        // Act
+        var result = CategoryMerger.Merge(categories, schema);
+
+        // Assert
+        var mergedKey = result.MergedCategories[0].ToKey();
+        result.MergeMap.ShouldContainKey(mergedKey);
+        var originals = result.MergeMap[mergedKey];
+        originals.Count.ShouldBe(2);
+        originals.ShouldContain(new DlqCategoryKey("Error A", "1"));
+        originals.ShouldContain(new DlqCategoryKey("Error B", "1"));
+    }
+
+    [Fact]
+    public void ExpandKeys_ForNDimensionalMerge()
+    {
+        // Arrange
+        var schema = CategorizationSchema.Parse(["#Subject", "$tier"]);
+        var categories = new List<DlqCategory>
+        {
+            new(["Error A", "1"], 1),
+            new(["Error B", "1"], 2)
+        };
+        var result = CategoryMerger.Merge(categories, schema);
+        var mergedKey = result.MergedCategories[0].ToKey();
+
+        // Act
+        var expanded = result.ExpandKeys(new HashSet<DlqCategoryKey> { mergedKey });
+
+        // Assert
+        expanded.Count.ShouldBe(2);
+    }
 }

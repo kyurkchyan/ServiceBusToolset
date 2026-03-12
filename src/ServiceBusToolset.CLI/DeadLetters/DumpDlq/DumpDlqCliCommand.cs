@@ -52,6 +52,11 @@ public class DumpDlqCliCommand : ICliCommand
             HelpText = "Merge similar DLQ categories using LCS-based clustering (interactive mode only)")]
     public bool MergeSimilar { get; set; }
 
+    [Option("categorize-by",
+            Separator = ',',
+            HelpText = "Properties to categorize by. #Prop for system (falls back to application properties), $Prop for body. Default: #Subject,#DeadLetterReason")]
+    public IEnumerable<string>? CategorizeBy { get; set; }
+
     [Option('v',
             "verbose",
             Default = false,
@@ -81,6 +86,17 @@ public class DumpDlqCliCommand : ICliCommand
         if (!DryRun && string.IsNullOrEmpty(OutputFile))
         {
             return "Either --output or --dry-run must be specified.";
+        }
+
+        if (CategorizeBy != null)
+        {
+            foreach (var token in CategorizeBy)
+            {
+                if (string.IsNullOrWhiteSpace(token) || token.Trim().Length < 2 || (token.Trim()[0] != '#' && token.Trim()[0] != '$'))
+                {
+                    return $"Invalid --categorize-by token '{token}'. Each token must start with '#' (system) or '$' (body) followed by a property name.";
+                }
+            }
         }
 
         return null;

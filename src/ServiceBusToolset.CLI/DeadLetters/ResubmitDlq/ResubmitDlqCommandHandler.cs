@@ -1,6 +1,7 @@
 using Ardalis.Result;
 using Mediator;
 using ServiceBusToolset.Application.Common.ServiceBus.Models;
+using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.DumpDlq;
 using ServiceBusToolset.Application.DeadLetters.ResubmitDlq;
 using ServiceBusToolset.CLI.Common.Commands;
@@ -136,13 +137,34 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         return Result.Success(Unit.Value);
     }
 
+    /// <summary>
+    /// Runs an interactive DLQ resubmission session: scans categories, prompts for a category selection, and resubmits the selected messages.
+    /// </summary>
+    /// <param name="cliCommand">The parsed CLI command containing options for resubmission and categorization.</param>
+    /// <param name="target">The entity target (queue or subscription) from which messages will be resubmitted.</param>
+    /// <param name="entityDescription">A human-readable description of the source entity used in user-facing messages.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <returns>A successful Result containing Unit when resubmission completes or is cancelled by the user; otherwise an error Result with failure details.</returns>
     private async Task<Result<Unit>> ExecuteInteractiveResubmitAsync(
         ResubmitDlqCliCommand cliCommand,
         EntityTarget target,
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        var streamCommand = new StreamDlqCategoriesCommand(cliCommand.Namespace, target, cliCommand.MergeSimilar);
+        CategorizationSchema schema;
+        try
+        {
+            schema = CategorizationSchema.Parse(cliCommand.CategorizeBy);
+        }
+        catch (ArgumentException ex)
+        {
+            return Result.Invalid(new ValidationError(ex.Message));
+        }
+
+        var streamCommand = new StreamDlqCategoriesCommand(cliCommand.Namespace,
+                                                           target,
+                                                           cliCommand.MergeSimilar,
+                                                           schema);
         var sessionResult = await mediator.Send(streamCommand, cancellationToken);
 
         if (!sessionResult.IsSuccess)
