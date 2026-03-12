@@ -80,6 +80,14 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator, IConsoleOutput o
         return Result.Success(Unit.Value);
     }
 
+    /// <summary>
+    /// Runs an interactive DLQ diagnosis session: streams messages using the provided categorization schema, lets the user select categories to diagnose, and performs diagnosis on the selected cached messages.
+    /// </summary>
+    /// <param name="cliCommand">CLI options that control the diagnose run (namespace, categorization, merge behavior, App Insights resource, time filter, and output file).</param>
+    /// <param name="target">The queue or subscription DLQ target to diagnose.</param>
+    /// <param name="entityDescription">Human-readable description of the target used for console output.</param>
+    /// <param name="cancellationToken">Token to cancel the interactive diagnose operation.</param>
+    /// <returns>`Result<Unit>` containing success when diagnosis completed or was canceled by the user selection flow, or an error result when an underlying operation failed.</returns>
     private async Task<Result<Unit>> ExecuteInteractiveDiagnoseAsync(
         DiagnoseDlqCliCommand cliCommand,
         EntityTarget target,

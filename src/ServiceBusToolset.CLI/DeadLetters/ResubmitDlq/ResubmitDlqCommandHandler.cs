@@ -137,6 +137,14 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         return Result.Success(Unit.Value);
     }
 
+    /// <summary>
+    /// Runs an interactive DLQ resubmission session: scans categories, prompts for a category selection, and resubmits the selected messages.
+    /// </summary>
+    /// <param name="cliCommand">The parsed CLI command containing options for resubmission and categorization.</param>
+    /// <param name="target">The entity target (queue or subscription) from which messages will be resubmitted.</param>
+    /// <param name="entityDescription">A human-readable description of the source entity used in user-facing messages.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <returns>A successful Result containing Unit when resubmission completes or is cancelled by the user; otherwise an error Result with failure details.</returns>
     private async Task<Result<Unit>> ExecuteInteractiveResubmitAsync(
         ResubmitDlqCliCommand cliCommand,
         EntityTarget target,

@@ -138,6 +138,14 @@ public sealed class PurgeDlqCommandHandler(ISender mediator, IConsoleOutput outp
         return Result.Success(Unit.Value);
     }
 
+    /// <summary>
+    /// Runs an interactive DLQ purge session that scans messages, prompts the user to select categories, and purges the selected messages.
+    /// </summary>
+    /// <param name="cliCommand">The parsed CLI options controlling purge behavior and filters.</param>
+    /// <param name="target">The entity target (queue or subscription) whose DLQ will be examined and purged.</param>
+    /// <param name="entityDescription">A human-readable description of the target used in console messages.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation of the interactive purge operation.</param>
+    /// <returns>A <see cref="Result{Unit}"/> that is successful when the operation completes or is cancelled by the user; otherwise an error result containing details from the failed operation.</returns>
     private async Task<Result<Unit>> ExecuteInteractivePurgeAsync(
         PurgeDlqCliCommand cliCommand,
         EntityTarget target,

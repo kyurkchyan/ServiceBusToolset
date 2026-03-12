@@ -17,6 +17,12 @@ public sealed record StreamDlqCategoriesCommand(string FullyQualifiedNamespace,
 public sealed class StreamDlqCategoriesCommandHandler(IServiceBusClientFactory clientFactory)
     : ICommandHandler<StreamDlqCategoriesCommand, Result<DlqResubmitSession>>
 {
+    /// <summary>
+    /// Creates a DLQ resubmission session for the specified target, starts a background task that feeds the message cache and produces category snapshots, and returns the initialized session wrapped in a success result.
+    /// </summary>
+    /// <param name="command">Command containing the fully qualified namespace, target entity, merge-similar flag, and optional categorization schema.</param>
+    /// <param name="cancellationToken">Cancellation token used to cancel the handler's background cache-feeding task; it will be linked with the session's internal scan cancellation token.</param>
+    /// <returns>A <see cref="Result{T}"/> containing the created <see cref="DlqResubmitSession"/> on success.</returns>
     public ValueTask<Result<DlqResubmitSession>> Handle(
         StreamDlqCategoriesCommand command,
         CancellationToken cancellationToken)

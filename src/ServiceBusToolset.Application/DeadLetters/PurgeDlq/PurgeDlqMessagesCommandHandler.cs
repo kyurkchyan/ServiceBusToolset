@@ -63,6 +63,13 @@ public sealed class PurgeDlqMessagesCommandHandler(IServiceBusClientFactory clie
         return Result.Success(new PurgeDlqResult(totalDeleted, 0));
     }
 
+    /// <summary>
+    /// Purges messages from the target DLQ that satisfy the command's filters and abandons messages that do not, reporting progress as items are processed.
+    /// </summary>
+    /// <param name="client">Service Bus client used to create a DLQ receiver.</param>
+    /// <param name="command">Command that specifies the target, optional BeforeTime, optional CategoryFilter and Schema, and an optional progress reporter.</param>
+    /// <param name="cancellationToken">Token used to observe cancellation of the purge operation.</param>
+    /// <returns>A Result containing a PurgeDlqResult with the total number of messages deleted and the number of skipped (left in DLQ) sequence numbers.</returns>
     private static async Task<Result<PurgeDlqResult>> PurgeWithFilterAsync(
         ServiceBusClient client,
         PurgeDlqMessagesCommand command,
@@ -129,6 +136,11 @@ public sealed class PurgeDlqMessagesCommandHandler(IServiceBusClientFactory clie
         return Result.Success(new PurgeDlqResult(totalDeleted, skippedSequenceNumbers.Count));
     }
 
+    /// <summary>
+    /// Determines whether a received DLQ message meets the command's time and category criteria and therefore should be removed.
+    /// </summary>
+    /// <param name="resolver">Resolver used to derive the message's category key for schema-aware filtering.</param>
+    /// <returns>`true` if the message satisfies the command's filters and should be purged, `false` otherwise.</returns>
     private static bool ShouldPurge(ServiceBusReceivedMessage message,
                                     PurgeDlqMessagesCommand command,
                                     CategoryPropertyResolver resolver)

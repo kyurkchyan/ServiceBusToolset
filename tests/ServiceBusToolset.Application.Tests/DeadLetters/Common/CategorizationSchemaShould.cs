@@ -116,6 +116,9 @@ public class CategorizationSchemaShould
         Should.Throw<ArgumentException>(() => new CategorizationSchema([]));
     }
 
+    /// <summary>
+    /// Verifies that the default CategorizationSchema has UsesBodyProperties set to false.
+    /// </summary>
     [Fact]
     public void DefaultUsesBodyPropertiesShouldBeFalse()
     {

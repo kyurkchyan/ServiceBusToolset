@@ -81,6 +81,9 @@ public class CategoryPropertyRefShould
         prop.DisplayName.ShouldBe("$error.code");
     }
 
+    /// <summary>
+    /// Verifies that parsing an empty, whitespace, or null reference causes CategoryPropertyRef.Parse to throw an ArgumentException.
+    /// </summary>
     [Theory]
     [InlineData("")]
     [InlineData("  ")]

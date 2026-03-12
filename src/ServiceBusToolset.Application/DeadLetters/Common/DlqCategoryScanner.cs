@@ -8,6 +8,17 @@ namespace ServiceBusToolset.Application.DeadLetters.Common;
 
 public static class DlqCategoryScanner
 {
+    /// <summary>
+    /// Build a snapshot of dead-letter categories from the provided message cache.
+    /// </summary>
+    /// <param name="cache">Reactive cache of DLQ messages to analyze.</param>
+    /// <param name="mergeSimilar">If true, merge similar categories into combined entries before returning.</param>
+    /// <param name="schema">Optional categorization schema to use; when null, <see cref="CategorizationSchema.Default"/> is used.</param>
+    /// <param name="resolver">Optional resolver for category properties; when null, a new <see cref="CategoryPropertyResolver"/> is used.</param>
+    /// <returns>
+    /// A <see cref="DlqCategorySnapshot"/> containing ordered category entries, the total message count observed in the snapshot, whether the cache is complete, and the effective categorization schema. 
+    /// If <paramref name="mergeSimilar"/> is true, the snapshot includes merged category results.
+    /// </returns>
     public static DlqCategorySnapshot BuildCategorySnapshot(
         ReactiveMessageCache<ServiceBusReceivedMessage, long> cache,
         bool mergeSimilar = false,
@@ -47,6 +58,12 @@ public static class DlqCategoryScanner
                                        effectiveSchema);
     }
 
+    /// <summary>
+    /// Populates the provided DLQ message cache by peeking dead-letter messages from the specified Service Bus target and updates the scan session with progress and errors.
+    /// </summary>
+    /// <param name="session">Session object used to report progress, total DLQ count (if available), and any error encountered during the scan.</param>
+    /// <param name="messageFilter">Optional predicate to filter messages before they are added to the cache; if null all peeked messages are cached.</param>
+    /// <param name="cancellationToken">Token to cancel the scanning operation.</param>
     public static async Task FeedCacheAsync(
         IServiceBusClientFactory clientFactory,
         string fullyQualifiedNamespace,

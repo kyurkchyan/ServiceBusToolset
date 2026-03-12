@@ -34,6 +34,13 @@ public class DlqScanSession(ReactiveMessageCache<ServiceBusReceivedMessage, long
                .ToList();
     }
 
+    /// <summary>
+    /// Determines whether the given dead-letter message belongs to one of the specified categories and, if a cutoff is provided, was enqueued before that cutoff.
+    /// </summary>
+    /// <param name="message">The dead-letter Service Bus message to evaluate.</param>
+    /// <param name="categoryKeys">The set of category keys to match the message against.</param>
+    /// <param name="beforeTime">Optional cutoff time; when provided only messages with <c>EnqueuedTime</c> earlier than this value match.</param>
+    /// <returns><c>true</c> if the message's category is contained in <paramref name="categoryKeys"/> and, when <paramref name="beforeTime"/> is provided, the message was enqueued earlier than that time; <c>false</c> otherwise.</returns>
     protected virtual bool MatchesFilter(
         ServiceBusReceivedMessage message,
         IReadOnlySet<DlqCategoryKey> categoryKeys,

@@ -7,6 +7,17 @@ public static class CategoryMerger
     private const string Wildcard = "*";
     private const double MergeThreshold = 0.5;
 
+    /// <summary>
+    /// Groups and consolidates similar dead-letter categories into merged templates across configured dimensions.
+    /// </summary>
+    /// <param name="categories">The list of categories to merge; each entry's counts contribute to merged totals.</param>
+    /// <param name="schema">Optional categorization schema that determines the number of dimensions to consider; defaults to the standard schema if null.</param>
+    /// <returns>
+    /// A CategoryMergeResult containing:
+    /// - Merged categories sorted by descending Count, and
+    /// - A map from each merged category key to the set of original category keys that were combined into it.
+    /// If the input list is empty, both collections will be empty.
+    /// </returns>
     public static CategoryMergeResult Merge(IReadOnlyList<DlqCategory> categories,
                                             CategorizationSchema? schema = null)
     {
@@ -138,6 +149,12 @@ public static class CategoryMerger
         return new CategoryMergeResult(mergedCategories, mergeMap);
     }
 
+    /// <summary>
+    /// Split each dimension value of a category into space-separated tokens and return them as a per-dimension token matrix.
+    /// </summary>
+    /// <param name="category">The category whose dimension values will be tokenized.</param>
+    /// <param name="dimensionCount">The number of dimensions to produce tokens for; if a dimension index is out of range for the category, the placeholder "(none)" is tokenized for that dimension.</param>
+    /// <returns>An array of length <paramref name="dimensionCount"/> where each element is the string[] of tokens for the corresponding dimension.</returns>
     private static string[][] TokenizeDimensions(DlqCategory category, int dimensionCount)
     {
         var result = new string[dimensionCount][];
@@ -150,6 +167,12 @@ public static class CategoryMerger
         return result;
     }
 
+    /// <summary>
+    /// Computes the longest common subsequence of two token sequences and returns it in original order.
+    /// </summary>
+    /// <param name="a">First sequence of tokens to compare.</param>
+    /// <param name="b">Second sequence of tokens to compare.</param>
+    /// <returns>An array containing the tokens of the longest common subsequence in the order they appear in the inputs; empty if no common subsequence exists.</returns>
     private static string[] ComputeLcs(string[] a, string[] b)
     {
         var m = a.Length;
@@ -195,6 +218,13 @@ public static class CategoryMerger
         return lcs.ToArray();
     }
 
+    /// <summary>
+    /// Computes a similarity score between a template frame and a token set based on the longest common subsequence length.
+    /// </summary>
+    /// <param name="lcsLen">Length of the longest common subsequence between the frame and the tokens.</param>
+    /// <param name="frameLen">Number of tokens in the template frame.</param>
+    /// <param name="tokensLen">Number of tokens in the compared token set.</param>
+    /// <returns>`1.0` if both `frameLen` and `tokensLen` are zero; otherwise the LCS length divided by the larger of `frameLen` and `tokensLen`.</returns>
     private static double Score(int lcsLen, int frameLen, int tokensLen)
     {
         var maxLen = Math.Max(frameLen, tokensLen);
@@ -261,6 +291,14 @@ public static class CategoryMerger
         return string.Join(' ', result);
     }
 
+    /// <summary>
+    /// Maps each token in a frame to its corresponding index in a target token sequence, preserving order.
+    /// </summary>
+    /// <param name="frame">Sequence of tokens that must be found in order.</param>
+    /// <param name="tokens">Target token sequence to search within.</param>
+    /// <returns>
+    /// An int array where element i is the index in <paramref name="tokens"/> of <paramref name="frame"/>[i]; returns <c>null</c> if any frame token cannot be found in sequence order.
+    /// </returns>
     private static int[]? AlignFrameToTokens(string[] frame, string[] tokens)
     {
         var positions = new int[frame.Length];
