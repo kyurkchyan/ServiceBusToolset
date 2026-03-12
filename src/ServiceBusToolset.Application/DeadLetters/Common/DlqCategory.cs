@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace ServiceBusToolset.Application.DeadLetters.Common;
 
-public sealed class DlqCategory
+public sealed class DlqCategory : IEquatable<DlqCategory>
 {
     public ImmutableArray<string> Values { get; }
     public int Count { get; }
@@ -24,4 +24,33 @@ public sealed class DlqCategory
     public DlqCategoryKey ToKey() => new(Values);
 
     public static DlqCategory FromKey(DlqCategoryKey key, int count) => new(key.Values, count);
+
+    public bool Equals(DlqCategory? other)
+    {
+        if (other is null)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return Count == other.Count && Values.SequenceEqual(other.Values);
+    }
+
+    public override bool Equals(object? obj) => Equals(obj as DlqCategory);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Count);
+        foreach (var value in Values)
+        {
+            hash.Add(value);
+        }
+
+        return hash.ToHashCode();
+    }
 }

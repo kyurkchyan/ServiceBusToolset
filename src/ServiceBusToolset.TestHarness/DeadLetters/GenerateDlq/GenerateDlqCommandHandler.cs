@@ -116,10 +116,17 @@ public sealed class GenerateDlqCommandHandler(IServiceBusClientFactory clientFac
 
                 await Task.WhenAll(deadLetterTasks.Select(t => t.Task));
 
-                foreach (var (_, messageId) in deadLetterTasks)
+                foreach (var (task, messageId) in deadLetterTasks)
                 {
-                    pending.Remove(messageId);
-                    totalProcessed++;
+                    if (task.IsCompletedSuccessfully)
+                    {
+                        pending.Remove(messageId);
+                        totalProcessed++;
+                    }
+                    else
+                    {
+                        Output.Error($"Failed to dead-letter message {messageId}: {task.Exception?.InnerException?.Message ?? "Unknown error"}");
+                    }
                 }
 
                 Output.Progress($"Processed {totalProcessed}/{specs.Count} messages...");

@@ -143,7 +143,16 @@ public sealed class ResubmitDlqCommandHandler(ISender mediator, IConsoleOutput o
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        var schema = CategorizationSchema.Parse(cliCommand.CategorizeBy);
+        CategorizationSchema schema;
+        try
+        {
+            schema = CategorizationSchema.Parse(cliCommand.CategorizeBy);
+        }
+        catch (ArgumentException ex)
+        {
+            return Result.Invalid(new ValidationError(ex.Message));
+        }
+
         var streamCommand = new StreamDlqCategoriesCommand(cliCommand.Namespace,
                                                            target,
                                                            cliCommand.MergeSimilar,

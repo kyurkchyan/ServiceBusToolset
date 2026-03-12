@@ -1,6 +1,7 @@
 # dump-dlq
 
-Export DLQ messages to a JSON file. This is a non-destructive operation that uses peek to read messages without removing them from the queue.
+Export DLQ messages to a JSON file. This is a non-destructive operation that uses peek to read messages without removing
+them from the queue.
 
 ## Synopsis
 
@@ -10,19 +11,19 @@ dotnet run -- dump-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscription>
 
 ## Options
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--namespace` | `-n` | **(Required)** Fully qualified Service Bus namespace |
-| `--queue` | `-q` | Queue name |
-| `--topic` | `-t` | Topic name (requires `--subscription`) |
-| `--subscription` | `-s` | Subscription name (requires `--topic`) |
-| `--output` | `-o` | Output JSON file path (required unless `--dry-run`) |
-| `--before` | | Only include messages enqueued before this UTC datetime (ISO 8601) |
-| `--dry-run` | | Preview message count without writing to file |
-| `--interactive` | `-i` | Interactive mode: view and select categories to dump |
-| `--merge-similar` | | Merge similar DLQ categories using LCS-based clustering (interactive mode only) |
-| `--categorize-by` | | Properties to categorize by. `#Prop` for system, `$Prop` for body. Default: `#Subject,#DeadLetterReason` |
-| `--verbose` | `-v` | Enable verbose output |
+| Option            | Short | Description                                                                                              |
+|-------------------|-------|----------------------------------------------------------------------------------------------------------|
+| `--namespace`     | `-n`  | **(Required)** Fully qualified Service Bus namespace                                                     |
+| `--queue`         | `-q`  | Queue name                                                                                               |
+| `--topic`         | `-t`  | Topic name (requires `--subscription`)                                                                   |
+| `--subscription`  | `-s`  | Subscription name (requires `--topic`)                                                                   |
+| `--output`        | `-o`  | Output JSON file path (required unless `--dry-run`)                                                      |
+| `--before`        |       | Only include messages enqueued before this UTC datetime (ISO 8601)                                       |
+| `--dry-run`       |       | Preview message count without writing to file                                                            |
+| `--interactive`   | `-i`  | Interactive mode: view and select categories to dump                                                     |
+| `--merge-similar` |       | Merge similar DLQ categories using LCS-based clustering (interactive mode only)                          |
+| `--categorize-by` |       | Properties to categorize by. `#Prop` for system, `$Prop` for body. Default: `#Subject,#DeadLetterReason` |
+| `--verbose`       | `-v`  | Enable verbose output                                                                                    |
 
 ## Examples
 
@@ -92,31 +93,31 @@ dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o outpu
 
 # Categorize by dead letter reason and a body property
 dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o output.json -i \
-  --categorize-by "#DeadLetterReason,$ErrorCode"
+  --categorize-by '#DeadLetterReason,$ErrorCode'
 
 # Nested body properties use dot notation
 dotnet run -- dump-dlq -n mynamespace.servicebus.windows.net -q myqueue -o output.json -i \
-  --categorize-by "#Subject,$Product.Category"
+  --categorize-by '#Subject,$Product.Category'
 ```
 
 **Property syntax:**
 
-| Prefix | Source | Example |
-|--------|--------|---------|
-| `#` | System property on `ServiceBusReceivedMessage` | `#Subject`, `#DeadLetterReason`, `#ContentType`, `#CorrelationId` |
-| `#` | Falls back to `ApplicationProperties` if not a known system property | `#custom-header` |
-| `$` | Deserialized JSON body property | `$ErrorCode`, `$Product.Category.Name` |
+| Prefix | Source                                                               | Example                                                           |
+|--------|----------------------------------------------------------------------|-------------------------------------------------------------------|
+| `#`    | System property on `ServiceBusReceivedMessage`                       | `#Subject`, `#DeadLetterReason`, `#ContentType`, `#CorrelationId` |
+| `#`    | Falls back to `ApplicationProperties` if not a known system property | `#custom-header`                                                  |
+| `$`    | Deserialized JSON body property                                      | `$ErrorCode`, `$Product.Category.Name`                            |
 
 Unresolved properties (missing from message or body) display as `(none)`.
 
 **Selection options:**
 
-| Input | Action |
-|-------|--------|
-| `1,3,5` | Select specific categories |
-| `1-5` | Select a range |
-| `all` / `a` | Select all categories |
-| `q` / empty | Quit without dumping |
+| Input       | Action                     |
+|-------------|----------------------------|
+| `1,3,5`     | Select specific categories |
+| `1-5`       | Select a range             |
+| `all` / `a` | Select all categories      |
+| `q` / empty | Quit without dumping       |
 
 ## Output Format
 

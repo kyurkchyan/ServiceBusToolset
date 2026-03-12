@@ -62,7 +62,7 @@ public class DiagnoseDlqCliCommand : ICliCommand
 
     [Option("categorize-by",
             Separator = ',',
-            HelpText = "Properties to categorize by. #Prop for system, $Prop for body. Default: #Subject,#DeadLetterReason")]
+            HelpText = "Properties to categorize by. #Prop for system (falls back to application properties), $Prop for body. Default: #Subject,#DeadLetterReason")]
     public IEnumerable<string>? CategorizeBy { get; set; }
 
     [Option('v',
@@ -94,6 +94,17 @@ public class DiagnoseDlqCliCommand : ICliCommand
         if (MaxMessages <= 0)
         {
             return "--max-messages must be greater than 0.";
+        }
+
+        if (CategorizeBy != null)
+        {
+            foreach (var token in CategorizeBy)
+            {
+                if (string.IsNullOrWhiteSpace(token) || token.Trim().Length < 2 || (token.Trim()[0] != '#' && token.Trim()[0] != '$'))
+                {
+                    return $"Invalid --categorize-by token '{token}'. Each token must start with '#' (system) or '$' (body) followed by a property name.";
+                }
+            }
         }
 
         return null;

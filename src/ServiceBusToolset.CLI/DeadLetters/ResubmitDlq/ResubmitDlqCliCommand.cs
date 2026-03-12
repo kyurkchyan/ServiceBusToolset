@@ -61,7 +61,7 @@ public class ResubmitDlqCliCommand : ICliCommand
 
     [Option("categorize-by",
             Separator = ',',
-            HelpText = "Properties to categorize by. #Prop for system, $Prop for body. Default: #Subject,#DeadLetterReason")]
+            HelpText = "Properties to categorize by. #Prop for system (falls back to application properties), $Prop for body. Default: #Subject,#DeadLetterReason")]
     public IEnumerable<string>? CategorizeBy { get; set; }
 
     public bool IsQueueMode => !string.IsNullOrEmpty(Queue);
@@ -93,6 +93,17 @@ public class ResubmitDlqCliCommand : ICliCommand
         if (!string.IsNullOrEmpty(TargetQueue) && !string.IsNullOrEmpty(TargetTopic))
         {
             return "Cannot specify both --target-queue and --target-topic.";
+        }
+
+        if (CategorizeBy != null)
+        {
+            foreach (var token in CategorizeBy)
+            {
+                if (string.IsNullOrWhiteSpace(token) || token.Trim().Length < 2 || (token.Trim()[0] != '#' && token.Trim()[0] != '$'))
+                {
+                    return $"Invalid --categorize-by token '{token}'. Each token must start with '#' (system) or '$' (body) followed by a property name.";
+                }
+            }
         }
 
         return null;

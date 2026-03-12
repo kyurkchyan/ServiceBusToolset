@@ -11,15 +11,20 @@ public sealed class CategorizationSchema
     public int DimensionCount => Properties.Count;
     public bool UsesBodyProperties { get; }
 
-    public CategorizationSchema(IReadOnlyList<CategoryPropertyRef> properties)
+    public CategorizationSchema(IReadOnlyList<CategoryPropertyRef?> properties)
     {
         if (properties.Count == 0)
         {
             throw new ArgumentException("At least one property reference is required.", nameof(properties));
         }
 
-        Properties = [..properties];
-        UsesBodyProperties = properties.Any(p => p.Source == PropertySource.Body);
+        if (properties.Any(p => p is null))
+        {
+            throw new ArgumentException("Property references cannot contain null elements.", nameof(properties));
+        }
+
+        Properties = [..properties!];
+        UsesBodyProperties = properties.Any(p => p!.Source == PropertySource.Body);
     }
 
     public static CategorizationSchema Parse(IEnumerable<string>? references)

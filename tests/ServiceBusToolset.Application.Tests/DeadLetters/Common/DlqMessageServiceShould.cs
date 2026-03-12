@@ -516,9 +516,7 @@ public class DlqMessageServiceShould
 
         // Act
         var result = DlqMessageService.FilterByCategories(messages,
-                                                          categories,
-                                                          null,
-                                                          null);
+                                                          categories);
 
         // Assert
         result.Count.ShouldBe(1);

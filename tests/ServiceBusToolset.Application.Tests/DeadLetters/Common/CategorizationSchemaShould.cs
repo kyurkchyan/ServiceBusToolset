@@ -7,7 +7,7 @@ namespace ServiceBusToolset.Application.Tests.DeadLetters.Common;
 public class CategorizationSchemaShould
 {
     [Fact]
-    public void HaveDefaultWithSubjectAndDeadLetterReason()
+    public void HaveSubjectAndDeadLetterReason_WhenUsingDefault()
     {
         // Arrange & Act
         var schema = CategorizationSchema.Default;
@@ -41,7 +41,7 @@ public class CategorizationSchemaShould
     }
 
     [Fact]
-    public void ParseSingleSystemProperty()
+    public void ParseSingleDimension_WhenGivenOneSystemProperty()
     {
         // Arrange & Act
         var schema = CategorizationSchema.Parse(["#DeadLetterReason"]);
@@ -53,7 +53,7 @@ public class CategorizationSchemaShould
     }
 
     [Fact]
-    public void ParseMixedProperties()
+    public void ParseMixedDimensions_WhenGivenSystemAndBodyProperties()
     {
         // Arrange & Act
         var schema = CategorizationSchema.Parse(["#DeadLetterReason", "$ErrorCode"]);
@@ -67,7 +67,7 @@ public class CategorizationSchemaShould
     }
 
     [Fact]
-    public void ParseThreeDimensions()
+    public void ParseThreeDimensions_WhenGivenThreeProperties()
     {
         // Arrange & Act
         var schema = CategorizationSchema.Parse(["$tier", "#Subject", "#DeadLetterReason"]);
@@ -117,9 +117,16 @@ public class CategorizationSchemaShould
     }
 
     [Fact]
-    public void DefaultUsesBodyPropertiesShouldBeFalse()
+    public void NotUseBodyProperties_WhenUsingDefault()
     {
         // Assert
         CategorizationSchema.Default.UsesBodyProperties.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void ThrowArgumentException_WhenPropertiesContainNull()
+    {
+        // Act & Assert
+        Should.Throw<ArgumentException>(() => new CategorizationSchema([null!]));
     }
 }

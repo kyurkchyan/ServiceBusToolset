@@ -136,7 +136,16 @@ public sealed class DumpDlqCommandHandler(ISender mediator, IConsoleOutput outpu
         string entityDescription,
         CancellationToken cancellationToken)
     {
-        var schema = CategorizationSchema.Parse(cliCommand.CategorizeBy);
+        CategorizationSchema schema;
+        try
+        {
+            schema = CategorizationSchema.Parse(cliCommand.CategorizeBy);
+        }
+        catch (ArgumentException ex)
+        {
+            return Result.Invalid(new ValidationError(ex.Message));
+        }
+
         var streamCommand = new StreamDlqCommand(cliCommand.Namespace,
                                                  target,
                                                  cliCommand.MergeSimilar,

@@ -176,7 +176,11 @@ public class CategoryPropertyResolverShould
     {
         // Arrange
         var message = ServiceBusReceivedMessageBuilder.Create()
-                                                      .WithJsonBody(new { errorCode = "E001", tier = 1 })
+                                                      .WithJsonBody(new
+                                                      {
+                                                          errorCode = "E001",
+                                                          tier = 1
+                                                      })
                                                       .Build();
         var prop = new CategoryPropertyRef(PropertySource.Body, "errorCode");
 
@@ -192,7 +196,14 @@ public class CategoryPropertyResolverShould
     {
         // Arrange
         var message = ServiceBusReceivedMessageBuilder.Create()
-                                                      .WithJsonBody(new { error = new { code = "E002", severity = "critical" } })
+                                                      .WithJsonBody(new
+                                                      {
+                                                          error = new
+                                                          {
+                                                              code = "E002",
+                                                              severity = "critical"
+                                                          }
+                                                      })
                                                       .Build();
         var prop = new CategoryPropertyRef(PropertySource.Body, "error.code");
 
@@ -208,13 +219,7 @@ public class CategoryPropertyResolverShould
     {
         // Arrange
         var message = ServiceBusReceivedMessageBuilder.Create()
-                                                      .WithJsonBody(new
-                                                      {
-                                                          context = new
-                                                          {
-                                                              deployment = new { region = "us-east-1" }
-                                                          }
-                                                      })
+                                                      .WithJsonBody(new { context = new { deployment = new { region = "us-east-1" } } })
                                                       .Build();
         var prop = new CategoryPropertyRef(PropertySource.Body, "context.deployment.region");
 
@@ -313,7 +318,11 @@ public class CategoryPropertyResolverShould
         // Arrange
         var message = ServiceBusReceivedMessageBuilder.Create()
                                                       .WithSequenceNumber(42)
-                                                      .WithJsonBody(new { code = "E001", severity = "warning" })
+                                                      .WithJsonBody(new
+                                                      {
+                                                          code = "E001",
+                                                          severity = "warning"
+                                                      })
                                                       .Build();
         var codeProp = new CategoryPropertyRef(PropertySource.Body, "code");
         var severityProp = new CategoryPropertyRef(PropertySource.Body, "severity");

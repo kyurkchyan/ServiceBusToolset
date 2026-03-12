@@ -10,18 +10,18 @@ dotnet run -- purge-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscription
 
 ## Options
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--namespace` | `-n` | **(Required)** Fully qualified Service Bus namespace |
-| `--queue` | `-q` | Queue name |
-| `--topic` | `-t` | Topic name (requires `--subscription`) |
-| `--subscription` | `-s` | Subscription name (requires `--topic`) |
-| `--before` | | Only purge messages enqueued before this UTC datetime (ISO 8601) |
-| `--dry-run` | | Preview message count without purging |
-| `--interactive` | `-i` | Interactive mode: view and select categories to purge |
-| `--merge-similar` | | Merge similar DLQ categories using LCS-based clustering (interactive mode only) |
-| `--categorize-by` | | Properties to categorize by. `#Prop` for system, `$Prop` for body. Default: `#Subject,#DeadLetterReason` |
-| `--verbose` | `-v` | Enable verbose output |
+| Option            | Short | Description                                                                                              |
+|-------------------|-------|----------------------------------------------------------------------------------------------------------|
+| `--namespace`     | `-n`  | **(Required)** Fully qualified Service Bus namespace                                                     |
+| `--queue`         | `-q`  | Queue name                                                                                               |
+| `--topic`         | `-t`  | Topic name (requires `--subscription`)                                                                   |
+| `--subscription`  | `-s`  | Subscription name (requires `--topic`)                                                                   |
+| `--before`        |       | Only purge messages enqueued before this UTC datetime (ISO 8601)                                         |
+| `--dry-run`       |       | Preview message count without purging                                                                    |
+| `--interactive`   | `-i`  | Interactive mode: view and select categories to purge                                                    |
+| `--merge-similar` |       | Merge similar DLQ categories using LCS-based clustering (interactive mode only)                          |
+| `--categorize-by` |       | Properties to categorize by. `#Prop` for system, `$Prop` for body. Default: `#Subject,#DeadLetterReason` |
+| `--verbose`       | `-v`  | Enable verbose output                                                                                    |
 
 ## Examples
 
@@ -63,7 +63,7 @@ View messages grouped by category properties, then select which to purge:
 dotnet run -- purge-dlq -n mynamespace.servicebus.windows.net -q myqueue -i
 ```
 
-```
+```text
 Dead Letter Summary:
 ╭───┬─────────────────────┬────────────────────────────────┬───────╮
 │ # │ #Subject            │ #DeadLetterReason              │ Count │
@@ -87,19 +87,19 @@ Categorize by any combination of system properties (`#Prop`) and JSON body prope
 ```bash
 # Categorize by dead letter reason and a body property
 dotnet run -- purge-dlq -n mynamespace.servicebus.windows.net -q myqueue -i \
-  --categorize-by "#DeadLetterReason,$ErrorCode"
+  --categorize-by '#DeadLetterReason,$ErrorCode'
 ```
 
 See [dump-dlq](dump-dlq.md#custom-categorization) for full property syntax reference.
 
 **Selection options:**
 
-| Input | Action |
-|-------|--------|
-| `1,3,5` | Select specific categories |
-| `1-5` | Select a range |
-| `all` / `a` | Select all categories |
-| `q` / empty | Quit without purging |
+| Input       | Action                     |
+|-------------|----------------------------|
+| `1,3,5`     | Select specific categories |
+| `1-5`       | Select a range             |
+| `all` / `a` | Select all categories      |
+| `q` / empty | Quit without purging       |
 
 ## Required Permissions
 

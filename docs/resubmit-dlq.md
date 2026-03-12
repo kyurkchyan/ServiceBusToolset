@@ -10,20 +10,20 @@ dotnet run -- resubmit-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscript
 
 ## Options
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--namespace` | `-n` | **(Required)** Fully qualified Service Bus namespace |
-| `--queue` | `-q` | Queue name |
-| `--topic` | `-t` | Topic name (requires `--subscription`) |
-| `--subscription` | `-s` | Subscription name (requires `--topic`) |
-| `--target-queue` | | Target queue to resubmit to (defaults to source queue) |
-| `--target-topic` | | Target topic to resubmit to (defaults to source topic) |
-| `--before` | | Only resubmit messages enqueued before this UTC datetime (ISO 8601) |
-| `--dry-run` | | Preview message count without resubmitting |
-| `--interactive` | `-i` | Interactive mode: view and select categories to resubmit |
-| `--merge-similar` | | Merge similar categories by replacing parameterized values (GUIDs, numbers) with wildcards |
-| `--categorize-by` | | Properties to categorize by. `#Prop` for system, `$Prop` for body. Default: `#Subject,#DeadLetterReason` |
-| `--verbose` | `-v` | Enable verbose output |
+| Option            | Short | Description                                                                                              |
+|-------------------|-------|----------------------------------------------------------------------------------------------------------|
+| `--namespace`     | `-n`  | **(Required)** Fully qualified Service Bus namespace                                                     |
+| `--queue`         | `-q`  | Queue name                                                                                               |
+| `--topic`         | `-t`  | Topic name (requires `--subscription`)                                                                   |
+| `--subscription`  | `-s`  | Subscription name (requires `--topic`)                                                                   |
+| `--target-queue`  |       | Target queue to resubmit to (defaults to source queue)                                                   |
+| `--target-topic`  |       | Target topic to resubmit to (defaults to source topic)                                                   |
+| `--before`        |       | Only resubmit messages enqueued before this UTC datetime (ISO 8601)                                      |
+| `--dry-run`       |       | Preview message count without resubmitting                                                               |
+| `--interactive`   | `-i`  | Interactive mode: view and select categories to resubmit                                                 |
+| `--merge-similar` |       | Merge similar categories by replacing parameterized values (GUIDs, numbers) with wildcards               |
+| `--categorize-by` |       | Properties to categorize by. `#Prop` for system, `$Prop` for body. Default: `#Subject,#DeadLetterReason` |
+| `--verbose`       | `-v`  | Enable verbose output                                                                                    |
 
 ## Examples
 
@@ -75,7 +75,7 @@ View messages grouped by category properties, then select which to resubmit:
 dotnet run -- resubmit-dlq -n mynamespace.servicebus.windows.net -q myqueue -i
 ```
 
-```
+```text
 Dead Letter Summary:
 ╭───┬─────────────────────┬────────────────────────────────┬───────╮
 │ # │ #Subject            │ #DeadLetterReason              │ Count │
@@ -99,19 +99,19 @@ Categorize by any combination of system properties (`#Prop`) and JSON body prope
 ```bash
 # Categorize by dead letter reason and a body property
 dotnet run -- resubmit-dlq -n mynamespace.servicebus.windows.net -q myqueue -i \
-  --categorize-by "#DeadLetterReason,$ErrorCode"
+  --categorize-by '#DeadLetterReason,$ErrorCode'
 ```
 
 See [dump-dlq](dump-dlq.md#custom-categorization) for full property syntax reference.
 
 **Selection options:**
 
-| Input | Action |
-|-------|--------|
-| `1,3,5` | Select specific categories |
-| `1-5` | Select a range |
-| `all` / `a` | Select all categories |
-| `q` / empty | Quit without resubmitting |
+| Input       | Action                     |
+|-------------|----------------------------|
+| `1,3,5`     | Select specific categories |
+| `1-5`       | Select a range             |
+| `all` / `a` | Select all categories      |
+| `q` / empty | Quit without resubmitting  |
 
 ## Message Properties
 
