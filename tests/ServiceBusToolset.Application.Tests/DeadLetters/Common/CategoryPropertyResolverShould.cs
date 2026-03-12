@@ -214,6 +214,9 @@ public class CategoryPropertyResolverShould
         result.ShouldBe("E002");
     }
 
+    /// <summary>
+    /// Verifies that resolving a dotted path into the JSON body returns the deeply nested value.
+    /// </summary>
     [Fact]
     public void ResolveDeeplyNestedBodyProperty()
     {

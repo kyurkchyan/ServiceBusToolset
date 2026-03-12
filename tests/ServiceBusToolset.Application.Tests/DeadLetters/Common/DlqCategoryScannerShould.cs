@@ -269,7 +269,12 @@ public class DlqCategoryScannerShould
         cache.Dispose();
     }
 
-    // --- Schema-aware snapshot building ---
+    /// <summary>
+    /// Verifies that building a category snapshot groups dead-lettered messages by the provided schema field (`$tier`) instead of the default Subject/DeadLetterReason.
+    /// </summary>
+    /// <remarks>
+    /// Expects a total message count of 3 and two categories: one for tier "1" with count 2 and one for tier "2" with count 1.
+    /// </remarks>
 
     [Fact]
     public void BuildCategorySnapshot_GroupsByCustomSchema()
@@ -311,6 +316,13 @@ public class DlqCategoryScannerShould
         cache.Dispose();
     }
 
+    /// <summary>
+    /// Verifies that BuildCategorySnapshot groups messages by a mixed schema containing the dead-letter reason and the JSON field "errorCode".
+    /// </summary>
+    /// <remarks>
+    /// Expects a snapshot with a total message count of 3 and two categories:
+    /// one for ["MaxDeliveryCountExceeded", "E001"] with count 2, and one for ["MaxDeliveryCountExceeded", "E002"] with count 1.
+    /// </remarks>
     [Fact]
     public void BuildCategorySnapshot_GroupsByMixedSchema()
     {

@@ -70,6 +70,12 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
         return Result.Success(new ResubmitDlqResult(totalResubmitted, 0));
     }
 
+    /// <summary>
+    /// Resubmits messages from the dead-letter queue for the target entity, applying the command's time and category filters and tracking skipped messages.
+    /// </summary>
+    /// <param name="command">Contains target entity info, optional BeforeTime and CategoryFilter for filtering, and an optional Progress reporter to receive (resubmittedCount, skippedCount) updates.</param>
+    /// <param name="cancellationToken">Cancellation token to stop processing.</param>
+    /// <returns>A <see cref="ResubmitDlqResult"/> with the total number of messages resubmitted and the number of messages skipped due to filtering.</returns>
     private async Task<Result<ResubmitDlqResult>> ResubmitWithFilterAsync(
         ServiceBusClient client,
         ResubmitDlqMessagesCommand command,
@@ -144,6 +150,13 @@ public sealed class ResubmitDlqMessagesCommandHandler(IServiceBusClientFactory c
         return Result.Success(new ResubmitDlqResult(totalResubmitted, skippedSequenceNumbers.Count));
     }
 
+    /// <summary>
+    /// Determines whether a DLQ message meets the command's filters and should be resubmitted.
+    /// </summary>
+    /// <param name="message">The received dead-letter message to evaluate.</param>
+    /// <param name="command">The resubmission command containing optional BeforeTime, CategoryFilter, and Schema.</param>
+    /// <param name="resolver">Resolver used to read category-related properties from the message when filtering by category.</param>
+    /// <returns>`true` if the message satisfies the time and category filters in the command and is eligible for resubmission, `false` otherwise.</returns>
     private static bool ShouldResubmit(ServiceBusReceivedMessage message,
                                        ResubmitDlqMessagesCommand command,
                                        CategoryPropertyResolver resolver)

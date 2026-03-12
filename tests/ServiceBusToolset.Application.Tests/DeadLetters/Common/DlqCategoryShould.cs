@@ -34,6 +34,9 @@ public class DlqCategoryShould
         category.Count.ShouldBe(10);
     }
 
+    /// <summary>
+    /// Verifies that when a DlqCategory is created with an empty Values collection, both Label and DeadLetterReason are "(none)".
+    /// </summary>
     [Fact]
     public void ReturnNoneForLabel_WhenValuesEmpty()
     {

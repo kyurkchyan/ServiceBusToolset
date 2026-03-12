@@ -70,7 +70,9 @@ public class DlqCategoryKeyShould
         keys.Count.ShouldBe(3);
     }
 
-    // --- N-dimensional key tests ---
+    /// <summary>
+    /// Verifies that constructing a DlqCategoryKey from an ImmutableArray&lt;string&gt; preserves the number of values and their order.
+    /// </summary>
 
     [Fact]
     public void CreateKey_WithImmutableArrayConstructor()
@@ -121,6 +123,10 @@ public class DlqCategoryKeyShould
         key.DeadLetterReason.ShouldBe("(none)");
     }
 
+    /// <summary>
+    /// Verifies that DlqCategoryKey implements value-based equality for multi-dimensional keys:
+    /// keys with identical elements are equal and keys with any differing element are not equal.
+    /// </summary>
     [Fact]
     public void SupportEquality_ForNDimensionalKeys()
     {

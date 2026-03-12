@@ -10,6 +10,13 @@ public sealed class GenerateDlqCommandHandler(IServiceBusClientFactory clientFac
 {
     private const int BatchSize = 100;
 
+    /// <summary>
+    /// Generates the specified number of messages and dead-letters them in the target Service Bus queue, optionally generating correlated Application Insights telemetry.
+    /// </summary>
+    /// <param name="command">Configuration for generation, including Namespace, Queue, Count, and AppInsightsConnectionString.</param>
+    /// <param name="verbose">If true, emits per-batch verbose output.</param>
+    /// <param name="cancellationToken">Token to cancel the generation and dead-lettering process.</param>
+    /// <returns>0 on success.</returns>
     protected override async Task<int> ExecuteCoreAsync(GenerateDlqCliCommand command, bool verbose,
                                                         CancellationToken cancellationToken = default)
     {
