@@ -7,6 +7,11 @@ public record DeadLetterSpec(string Subject,
 
 public class DeadLetterMessageFactory
 {
+    private static readonly string[] ErrorCodes = ["E001", "E002", "E003", "E004", "E005"];
+    private static readonly string[] Severities = ["critical", "warning", "info"];
+    private static readonly string[] Environments = ["production", "staging", "development"];
+    private static readonly string[] Regions = ["us-east-1", "eu-west-1", "ap-southeast-1"];
+
     private static readonly string[] FixedSubjects =
     [
         "OrderProcessor",
@@ -88,7 +93,9 @@ public class DeadLetterMessageFactory
         {
             var subject = FixedSubjects[_random.Next(FixedSubjects.Length)];
             var reason = FixedReasons[_random.Next(FixedReasons.Length)];
-            var body = $"{{\"source\":\"{subject}\",\"timestamp\":\"{DateTime.UtcNow:O}\",\"tier\":1}}";
+            var nested = BuildNestedProperties();
+            var body =
+                $"{{\"source\":\"{subject}\",\"timestamp\":\"{DateTime.UtcNow:O}\",\"tier\":1,{nested}}}";
             specs.Add(new DeadLetterSpec(subject, reason, body));
         }
 
@@ -115,7 +122,9 @@ public class DeadLetterMessageFactory
             }
 
             var reason = FixedReasons[_random.Next(FixedReasons.Length)];
-            var body = $"{{\"subject\":\"{subject}\",\"timestamp\":\"{DateTime.UtcNow:O}\",\"tier\":2}}";
+            var nested = BuildNestedProperties();
+            var body =
+                $"{{\"subject\":\"{subject}\",\"timestamp\":\"{DateTime.UtcNow:O}\",\"tier\":2,{nested}}}";
             specs.Add(new DeadLetterSpec(subject, reason, body));
         }
 
@@ -131,11 +140,23 @@ public class DeadLetterMessageFactory
             var template = ParameterizedReasons[_random.Next(ParameterizedReasons.Length)];
             var value = template.Values[_random.Next(template.Values.Length)];
             var reason = string.Format(template.Template, value);
-            var body = $"{{\"source\":\"{subject}\",\"reason\":\"{reason}\",\"timestamp\":\"{DateTime.UtcNow:O}\",\"tier\":3}}";
+            var nested = BuildNestedProperties();
+            var body =
+                $"{{\"source\":\"{subject}\",\"reason\":\"{reason}\",\"timestamp\":\"{DateTime.UtcNow:O}\",\"tier\":3,{nested}}}";
             specs.Add(new DeadLetterSpec(subject, reason, body));
         }
 
         return specs;
+    }
+
+    private string BuildNestedProperties()
+    {
+        var errorCode = ErrorCodes[_random.Next(ErrorCodes.Length)];
+        var severity = Severities[_random.Next(Severities.Length)];
+        var environment = Environments[_random.Next(Environments.Length)];
+        var region = Regions[_random.Next(Regions.Length)];
+
+        return $"\"error\":{{\"code\":\"{errorCode}\",\"severity\":\"{severity}\"}},\"context\":{{\"environment\":\"{environment}\",\"region\":\"{region}\"}}";
     }
 
     private void AssignTelemetryProfiles(List<DeadLetterSpec> specs)

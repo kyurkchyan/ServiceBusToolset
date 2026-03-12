@@ -143,13 +143,9 @@ Always include `// Arrange`, `// Act`, `// Assert` comments:
 public async Task ReturnSuccess_WhenMessagesExist()
 {
     // Arrange
-    var command = new DumpDlqMessagesCommand(
-        "namespace.servicebus.windows.net",
-        EntityTarget.ForQueue("my-queue"),
-        "/output/messages.json",
-        null,
-        null,
-        null);
+    var command = new DumpDlqMessagesCommand("namespace.servicebus.windows.net",
+                                            EntityTarget.ForQueue("my-queue"),
+                                            "/output/messages.json");
 
     var mockClient = Substitute.For<ServiceBusClient>();
     _clientFactory.CreateClient(Arg.Any<string>()).Returns(mockClient);
@@ -176,13 +172,9 @@ public async Task HandleAsync_ShouldPassCorrectNamespace_WhenCalled()
     _clientFactory.CreateClient(Arg.Do<string>(ns => capturedNamespace = ns))
                   .Returns(Substitute.For<ServiceBusClient>());
 
-    var command = new DumpDlqMessagesCommand(
-        "my-namespace.servicebus.windows.net",
-        EntityTarget.ForQueue("test-queue"),
-        "/output/test.json",
-        null,
-        null,
-        null);
+    var command = new DumpDlqMessagesCommand("my-namespace.servicebus.windows.net",
+                                            EntityTarget.ForQueue("test-queue"),
+                                            "/output/test.json");
 
     // Act
     await _handler.Handle(command, TestContext.Current.CancellationToken);

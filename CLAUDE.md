@@ -71,12 +71,28 @@ Cross-cutting concerns go in `Common/` folders at the appropriate level:
     - Add options type to `ParseArguments<...>()`
     - Add `MapResult` handler
 
+### Categorization Engine
+
+DLQ messages are categorized by configurable properties via `--categorize-by`. Default: `#Subject,#DeadLetterReason`.
+
+- `#PropertyName` — system property on `ServiceBusReceivedMessage` (e.g., `#DeadLetterReason`, `#ContentType`). Unrecognized names fall through to `ApplicationProperties`.
+- `$PropertyName` — deserialized JSON body property with dot notation for nesting (e.g., `$ErrorCode`, `$Product.Category.Name`).
+- Unresolved properties resolve to `"(none)"`.
+
+Key types in `DeadLetters/Common/`:
+
+- `CategoryPropertyRef` — parsed `#`/`$` reference with `PropertySource` enum
+- `CategorizationSchema` — ordered list of property refs; `Default` = `#Subject,#DeadLetterReason`
+- `CategoryPropertyResolver` — resolves system/body properties with per-SequenceNumber body cache
+- `DlqCategoryKey` — N-dimensional key (`ImmutableArray<string>` + custom equality)
+- `DlqCategory` — N-dimensional category with `ToKey()`/`FromKey()` factories
+
 ### Key Services
 
 **Application Layer:**
 
 - `IServiceBusClientFactory` - Creates Service Bus clients
-- `DlqMessageService` - DLQ peek/filter operations
+- `DlqMessageService` - DLQ peek/filter operations (accepts optional `CategorizationSchema`)
 
 **CLI Layer:**
 

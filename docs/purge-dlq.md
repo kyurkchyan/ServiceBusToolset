@@ -20,6 +20,7 @@ dotnet run -- purge-dlq -n <namespace> (-q <queue> | -t <topic> -s <subscription
 | `--dry-run` | | Preview message count without purging |
 | `--interactive` | `-i` | Interactive mode: view and select categories to purge |
 | `--merge-similar` | | Merge similar DLQ categories using LCS-based clustering (interactive mode only) |
+| `--categorize-by` | | Properties to categorize by. `#Prop` for system, `$Prop` for body. Default: `#Subject,#DeadLetterReason` |
 | `--verbose` | `-v` | Enable verbose output |
 
 ## Examples
@@ -56,19 +57,16 @@ dotnet run -- purge-dlq -n mynamespace.servicebus.windows.net -q myqueue --befor
 
 ### Interactive Mode
 
-View messages grouped by Label and DeadLetterReason, then select which to purge:
+View messages grouped by category properties, then select which to purge:
 
 ```bash
 dotnet run -- purge-dlq -n mynamespace.servicebus.windows.net -q myqueue -i
 ```
 
 ```
-Analyzing DLQ for queue 'myqueue'...
-Peeked 1,523 messages...
-
 Dead Letter Summary:
 ╭───┬─────────────────────┬────────────────────────────────┬───────╮
-│ # │ Label               │ DeadLetterReason               │ Count │
+│ # │ #Subject            │ #DeadLetterReason              │ Count │
 ├───┼─────────────────────┼────────────────────────────────┼───────┤
 │ 1 │ OrderCreated        │ MaxDeliveryCountExceeded       │   847 │
 │ 2 │ PaymentProcessed    │ MaxDeliveryCountExceeded       │   412 │
@@ -81,6 +79,18 @@ Select categories to purge (comma-separated numbers, 'all', or 'q' to quit): 1,3
 Purging 1,045 messages from 2 categories...
 Purged 1,045 messages from DLQ for queue 'myqueue'.
 ```
+
+### Custom Categorization
+
+Categorize by any combination of system properties (`#Prop`) and JSON body properties (`$Prop`):
+
+```bash
+# Categorize by dead letter reason and a body property
+dotnet run -- purge-dlq -n mynamespace.servicebus.windows.net -q myqueue -i \
+  --categorize-by "#DeadLetterReason,$ErrorCode"
+```
+
+See [dump-dlq](dump-dlq.md#custom-categorization) for full property syntax reference.
 
 **Selection options:**
 
