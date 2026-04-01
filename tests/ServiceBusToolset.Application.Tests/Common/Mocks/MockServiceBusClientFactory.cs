@@ -86,19 +86,14 @@ public class MockServiceBusClientFactory
         _peekCallCount = 0;
         _receiveCallCount = 0;
 
-        // Setup PeekMessagesAsync - returns all messages on first call, empty on subsequent
+        // Setup PeekMessagesAsync - returns messages in pages, respecting maxMessages per call
         Receiver.PeekMessagesAsync(Arg.Any<int>(), Arg.Any<long?>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     var maxMessages = callInfo.ArgAt<int>(0);
-                    _peekCallCount++;
-                    if (_peekCallCount == 1)
-                    {
-                        var batch = _messagesToReturn.Take(maxMessages).ToList();
-                        return Task.FromResult<IReadOnlyList<ServiceBusReceivedMessage>>(batch);
-                    }
-
-                    return Task.FromResult<IReadOnlyList<ServiceBusReceivedMessage>>([]);
+                    var batch = _messagesToReturn.Skip(_peekCallCount).Take(maxMessages).ToList();
+                    _peekCallCount += batch.Count;
+                    return Task.FromResult<IReadOnlyList<ServiceBusReceivedMessage>>(batch);
                 });
 
         // Setup ReceiveMessagesAsync - returns all messages on first call, empty on subsequent

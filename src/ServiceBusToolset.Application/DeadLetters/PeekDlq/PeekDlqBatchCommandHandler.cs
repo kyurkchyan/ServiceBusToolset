@@ -11,6 +11,9 @@ namespace ServiceBusToolset.Application.DeadLetters.PeekDlq;
 public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFactory)
     : ICommandHandler<PeekDlqBatchCommand, Result<PeekDlqBatchResult>>
 {
+    private const int PeekSubBatchSize = 100;
+    private const int EmptyBatchThreshold = 3;
+
     public async ValueTask<Result<PeekDlqBatchResult>> Handle(
         PeekDlqBatchCommand command,
         CancellationToken cancellationToken)
@@ -21,21 +24,46 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
         var totalDeadLetterCount = command.KnownDeadLetterCount
                                    ?? await GetDeadLetterCountAsync(clientFactory, command.FullyQualifiedNamespace, command.Target);
 
-        // Peek a batch of messages
+        // Peek messages in sub-batches until we reach BatchSize or run out
         await using var receiver = ReceiverFactory.CreateDlqReceiver(client, command.Target);
 
-        IReadOnlyList<ServiceBusReceivedMessage> rawMessages = command.FromSequenceNumber.HasValue
-                                                                   ? await receiver.PeekMessagesAsync(command.BatchSize, command.FromSequenceNumber.Value + 1, cancellationToken)
-                                                                   : await receiver.PeekMessagesAsync(command.BatchSize, cancellationToken:cancellationToken);
+        List<ServiceBusReceivedMessage> allMessages = [];
+        var emptyBatches = 0;
+        var isFirstPeek = true;
 
-        if (rawMessages.Count == 0)
+        while (allMessages.Count < command.BatchSize &&
+               emptyBatches < EmptyBatchThreshold &&
+               !cancellationToken.IsCancellationRequested)
+        {
+            var remaining = command.BatchSize - allMessages.Count;
+            var subBatchSize = Math.Min(PeekSubBatchSize, remaining);
+
+            IReadOnlyList<ServiceBusReceivedMessage> batch;
+            if (isFirstPeek && command.FromSequenceNumber.HasValue)
+            {
+                batch = await receiver.PeekMessagesAsync(subBatchSize, command.FromSequenceNumber.Value + 1, cancellationToken);
+                isFirstPeek = false;
+            }
+            else
+            {
+                batch = await receiver.PeekMessagesAsync(subBatchSize, cancellationToken: cancellationToken);
+                isFirstPeek = false;
+            }
+
+            if (batch.Count == 0)
+            {
+                emptyBatches++;
+                continue;
+            }
+
+            emptyBatches = 0;
+            allMessages.AddRange(batch);
+        }
+
+        if (allMessages.Count == 0)
         {
             return Result.Success(new PeekDlqBatchResult([],
-                                                         0,
-                                                         0,
-                                                         command.FromSequenceNumber,
-                                                         false,
-                                                         totalDeadLetterCount));
+                0, 0, command.FromSequenceNumber, false, totalDeadLetterCount));
         }
 
         // Extract operation IDs
@@ -43,7 +71,7 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
         var skipped = 0;
         HashSet<string> seenOperationIds = [];
 
-        foreach (var message in rawMessages)
+        foreach (var message in allMessages)
         {
             var operationId = MessageDiagnostics.ExtractOperationId(message);
             if (string.IsNullOrEmpty(operationId))
@@ -55,22 +83,19 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
             if (seenOperationIds.Add(operationId))
             {
                 messages.Add(new PeekedMessage(message.MessageId,
-                                               message.Subject,
-                                               operationId,
-                                               message.EnqueuedTime,
-                                               message.DeadLetterReason));
+                    message.Subject,
+                    operationId,
+                    message.EnqueuedTime,
+                    message.DeadLetterReason));
             }
         }
 
-        var lastSequenceNumber = rawMessages[^1].SequenceNumber;
-        var hasMore = rawMessages.Count >= command.BatchSize;
+        var lastSequenceNumber = allMessages[^1].SequenceNumber;
+        // We have more messages if we filled the batch (didn't run out early)
+        var hasMore = allMessages.Count >= command.BatchSize && emptyBatches < EmptyBatchThreshold;
 
         return Result.Success(new PeekDlqBatchResult(messages,
-                                                     rawMessages.Count,
-                                                     skipped,
-                                                     lastSequenceNumber,
-                                                     hasMore,
-                                                     totalDeadLetterCount));
+            allMessages.Count, skipped, lastSequenceNumber, hasMore, totalDeadLetterCount));
     }
 
     private static async Task<long> GetDeadLetterCountAsync(

@@ -166,9 +166,98 @@ public class PeekDlqBatchCommandHandlerShould
         result.Value.Messages[0].EnqueuedTime.ShouldBe(enqueuedTime);
     }
 
-    private static PeekDlqBatchCommand CreateCommand(long? fromSequenceNumber = null) =>
+    [Fact]
+    public async Task SetHasMoreMessages_WhenBatchIsFull()
+    {
+        // Create exactly BatchSize messages — handler should report HasMoreMessages=true
+        var batchSize = 5;
+        var messages = Enumerable.Range(1, batchSize)
+            .Select(i => ServiceBusReceivedMessageBuilder.Create()
+                .WithMessageId($"msg-{i}")
+                .WithDiagnosticId($"{i:D32}")
+                .WithSequenceNumber(i)
+                .Build())
+            .ToArray();
+
+        _mockFactory.WithMessagesToReturn(messages);
+
+        var command = CreateCommand(batchSize: batchSize);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.PeekedInBatch.ShouldBe(batchSize);
+        result.Value.HasMoreMessages.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SetHasMoreMessagesFalse_WhenFewerThanBatchSize()
+    {
+        // Create fewer messages than BatchSize — handler should report HasMoreMessages=false
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                .WithMessageId("msg-1")
+                .WithDiagnosticId("abc123def456abc123def456abc12345")
+                .WithSequenceNumber(1)
+                .Build()
+        };
+
+        _mockFactory.WithMessagesToReturn(messages);
+
+        var command = CreateCommand(batchSize: 500);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.PeekedInBatch.ShouldBe(1);
+        result.Value.HasMoreMessages.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task FillBatchAcrossMultipleSubBatches()
+    {
+        // Create more messages than a single sub-batch (100) but within BatchSize
+        // The mock returns messages paginated by maxMessages per call,
+        // so the handler must loop to collect them all
+        var messageCount = 250;
+        var messages = Enumerable.Range(1, messageCount)
+            .Select(i => ServiceBusReceivedMessageBuilder.Create()
+                .WithMessageId($"msg-{i}")
+                .WithDiagnosticId($"{i:D32}")
+                .WithSequenceNumber(i)
+                .Build())
+            .ToArray();
+
+        _mockFactory.WithMessagesToReturn(messages);
+
+        var command = CreateCommand(batchSize: 500);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.PeekedInBatch.ShouldBe(messageCount);
+        result.Value.Messages.Count.ShouldBe(messageCount);
+        result.Value.HasMoreMessages.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task UseKnownDeadLetterCount_WhenProvided()
+    {
+        _mockFactory.WithNoMessages();
+
+        var command = new PeekDlqBatchCommand(
+            "test.servicebus.windows.net",
+            EntityTargetBuilder.Queue(),
+            BatchSize: 500,
+            KnownDeadLetterCount: 42);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.TotalDeadLetterCount.ShouldBe(42);
+    }
+
+    private static PeekDlqBatchCommand CreateCommand(int batchSize = 500, long? fromSequenceNumber = null) =>
         new("test.servicebus.windows.net",
             EntityTargetBuilder.Queue(),
-            500,
+            batchSize,
             fromSequenceNumber);
 }
