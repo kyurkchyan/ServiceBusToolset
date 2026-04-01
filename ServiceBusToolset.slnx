@@ -1,29 +1,30 @@
 <Solution>
     <Configurations>
-        <Platform Name="Any CPU"/>
-        <Platform Name="x64"/>
-        <Platform Name="x86"/>
+        <Platform Name="Any CPU" />
+        <Platform Name="x64" />
+        <Platform Name="x86" />
     </Configurations>
     <Folder Name="/Solution Items/">
-        <File Path=".coderabbit.yaml"/>
-        <File Path=".editorconfig"/>
-        <File Path=".gitignore"/>
-        <File Path="CLAUDE.md"/>
-        <File Path="Directory.Build.props"/>
-        <File Path="global.json"/>
-        <File Path="README.md"/>
-        <File Path="Release.ps1"/>
-        <File Path="ServiceBusToolset.sln.DotSettings"/>
+        <File Path=".coderabbit.yaml" />
+        <File Path=".editorconfig" />
+        <File Path=".gitignore" />
+        <File Path="CLAUDE.md" />
+        <File Path="Directory.Build.props" />
+        <File Path="Directory.Packages.props" />
+        <File Path="global.json" />
+        <File Path="README.md" />
+        <File Path="Release.ps1" />
+        <File Path="ServiceBusToolset.sln.DotSettings" />
     </Folder>
     <Folder Name="/src/">
-        <Project Path="src/ServiceBusToolset.Application/ServiceBusToolset.Application.csproj"/>
-        <Project Path="src/ServiceBusToolset.CLI/ServiceBusToolset.CLI.csproj"/>
-        <Project Path="src/ServiceBusToolset.TestHarness/ServiceBusToolset.TestHarness.csproj"/>
+        <Project Path="src/ServiceBusToolset.Application/ServiceBusToolset.Application.csproj" />
+        <Project Path="src/ServiceBusToolset.CLI/ServiceBusToolset.CLI.csproj" />
+        <Project Path="src/ServiceBusToolset.TestHarness/ServiceBusToolset.TestHarness.csproj" />
     </Folder>
     <Folder Name="/tests/">
-        <Project Path="tests/ServiceBusToolset.Application.Tests/ServiceBusToolset.Application.Tests.csproj"/>
-        <Project Path="tests/ServiceBusToolset.IntegrationTesting/ServiceBusToolset.IntegrationTesting.csproj"/>
-        <Project Path="tests/ServiceBusToolset.Integration.Tests/ServiceBusToolset.Integration.Tests.csproj"/>
-        <Project Path="tests/ServiceBusToolset.CLI.Integration.Tests/ServiceBusToolset.CLI.Integration.Tests.csproj"/>
+        <Project Path="tests/ServiceBusToolset.Application.Tests/ServiceBusToolset.Application.Tests.csproj" />
+        <Project Path="tests/ServiceBusToolset.IntegrationTesting/ServiceBusToolset.IntegrationTesting.csproj" />
+        <Project Path="tests/ServiceBusToolset.Integration.Tests/ServiceBusToolset.Integration.Tests.csproj" />
+        <Project Path="tests/ServiceBusToolset.CLI.Integration.Tests/ServiceBusToolset.CLI.Integration.Tests.csproj" />
     </Folder>
 </Solution>
