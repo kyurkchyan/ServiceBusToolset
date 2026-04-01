@@ -119,10 +119,15 @@ jobs:
           echo "version=$ALPHA_VERSION" >> $GITHUB_OUTPUT
           echo "Generated version: $ALPHA_VERSION"
 
-      - name: Pack
+      - name: Pack CLI
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: dotnet pack src/ServiceBusToolset.CLI -c Release --no-build -o ./artifacts -p:Version="$VERSION"
+
+      - name: Pack Application
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: dotnet pack src/ServiceBusToolset.Application -c Release --no-build -o ./artifacts -p:Version="$VERSION"
 
       - name: Push to NuGet
         env:
