@@ -30,6 +30,7 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
         List<ServiceBusReceivedMessage> allMessages = [];
         var emptyBatches = 0;
         var isFirstPeek = true;
+        long highestSequenceNumber = command.FromSequenceNumber ?? -1;
 
         while (allMessages.Count < command.BatchSize &&
                emptyBatches < EmptyBatchThreshold &&
@@ -56,8 +57,16 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
                 continue;
             }
 
+            // Detect wrap-around: if the batch contains messages with sequence numbers
+            // we've already passed, the receiver has looped back to the beginning
+            if (batch[0].SequenceNumber <= highestSequenceNumber)
+            {
+                break;
+            }
+
             emptyBatches = 0;
             allMessages.AddRange(batch);
+            highestSequenceNumber = batch[^1].SequenceNumber;
         }
 
         if (allMessages.Count == 0)
