@@ -30,7 +30,7 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
         List<ServiceBusReceivedMessage> allMessages = [];
         var emptyBatches = 0;
         var isFirstPeek = true;
-        long highestSequenceNumber = command.FromSequenceNumber ?? -1;
+        var highestSequenceNumber = command.FromSequenceNumber ?? -1;
 
         while (allMessages.Count < command.BatchSize &&
                emptyBatches < EmptyBatchThreshold &&
@@ -47,7 +47,7 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
             }
             else
             {
-                batch = await receiver.PeekMessagesAsync(subBatchSize, cancellationToken: cancellationToken);
+                batch = await receiver.PeekMessagesAsync(subBatchSize, cancellationToken:cancellationToken);
                 isFirstPeek = false;
             }
 
@@ -72,7 +72,11 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
         if (allMessages.Count == 0)
         {
             return Result.Success(new PeekDlqBatchResult([],
-                0, 0, command.FromSequenceNumber, false, totalDeadLetterCount));
+                                                         0,
+                                                         0,
+                                                         command.FromSequenceNumber,
+                                                         false,
+                                                         totalDeadLetterCount));
         }
 
         // Extract operation IDs
@@ -92,10 +96,10 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
             if (seenOperationIds.Add(operationId))
             {
                 messages.Add(new PeekedMessage(message.MessageId,
-                    message.Subject,
-                    operationId,
-                    message.EnqueuedTime,
-                    message.DeadLetterReason));
+                                               message.Subject,
+                                               operationId,
+                                               message.EnqueuedTime,
+                                               message.DeadLetterReason));
             }
         }
 
@@ -104,7 +108,11 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
         var hasMore = allMessages.Count >= command.BatchSize && emptyBatches < EmptyBatchThreshold;
 
         return Result.Success(new PeekDlqBatchResult(messages,
-            allMessages.Count, skipped, lastSequenceNumber, hasMore, totalDeadLetterCount));
+                                                     allMessages.Count,
+                                                     skipped,
+                                                     lastSequenceNumber,
+                                                     hasMore,
+                                                     totalDeadLetterCount));
     }
 
     private static async Task<long> GetDeadLetterCountAsync(
@@ -125,9 +133,13 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
             var subProps = await adminClient.GetSubscriptionRuntimePropertiesAsync(target.Topic!, target.Subscription!);
             return subProps.Value.DeadLetterMessageCount;
         }
-        catch
+        catch (Azure.RequestFailedException)
         {
             // Admin API may not be available in all environments (e.g., emulator, unit tests)
+            return 0;
+        }
+        catch (OperationCanceledException)
+        {
             return 0;
         }
     }

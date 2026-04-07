@@ -20,16 +20,18 @@ public sealed class DiagnoseBatchCommandHandler(IAppInsightsService appInsightsS
         appInsightsService.Initialize(command.AppInsightsResourceId);
 
         var operations = command.Operations
-            .Select(op => (op.OperationId, op.EnqueuedTime))
-            .ToList();
+                                .Select(op => (op.OperationId, op.EnqueuedTime))
+                                .ToList();
 
-        var diagnosticResults = await appInsightsService.DiagnoseBatchAsync(
-            operations,
-            onProgress: null,
-            cancellationToken);
+        var diagnosticResults = await appInsightsService.DiagnoseBatchAsync(operations,
+                                                                            null,
+                                                                            cancellationToken);
 
         var results = new List<DiagnosticResult>();
-        var operationsById = command.Operations.ToDictionary(op => op.OperationId);
+        // Deduplicate by OperationId — take the first occurrence if duplicates exist
+        var operationsById = command.Operations
+                                    .DistinctBy(op => op.OperationId)
+                                    .ToDictionary(op => op.OperationId);
 
         foreach (var (operationId, result) in diagnosticResults)
         {

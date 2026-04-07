@@ -53,7 +53,14 @@ public class DiagnoseBatchIntegrationShould : BaseIntegrationTest
                                 results[opId] = new DiagnosticResult
                                 {
                                     OperationId = opId,
-                                    Exceptions = [new ExceptionInfo { ExceptionType = "TestException", OuterMessage = "Test error" }]
+                                    Exceptions =
+                                    [
+                                        new ExceptionInfo
+                                        {
+                                            ExceptionType = "TestException",
+                                            OuterMessage = "Test error"
+                                        }
+                                    ]
                                 };
                             }
 
@@ -62,14 +69,17 @@ public class DiagnoseBatchIntegrationShould : BaseIntegrationTest
 
         var operations = new List<OperationInfo>
         {
-            new(operationId, enqueuedTime, "msg-1", "OrderCreated", "MaxDeliveryCountExceeded")
+            new(operationId,
+                enqueuedTime,
+                "msg-1",
+                "OrderCreated",
+                "MaxDeliveryCountExceeded")
         };
 
         var sender = CreateSender();
 
-        var result = await sender.Send(
-            new DiagnoseBatchCommand("test-resource", operations),
-            TestContext.Current.CancellationToken);
+        var result = await sender.Send(new DiagnoseBatchCommand("test-resource", operations),
+                                       TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Count.ShouldBe(1);
@@ -84,9 +94,8 @@ public class DiagnoseBatchIntegrationShould : BaseIntegrationTest
     {
         var sender = CreateSender();
 
-        var result = await sender.Send(
-            new DiagnoseBatchCommand("test-resource", []),
-            TestContext.Current.CancellationToken);
+        var result = await sender.Send(new DiagnoseBatchCommand("test-resource", []),
+                                       TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeEmpty();

@@ -105,7 +105,7 @@ public class PeekDlqBatchIntegrationShould : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task ReturnTotalDeadLetterCount()
+    public async Task ReturnTotalDeadLetterCount_WhenDlqHasMessages()
     {
         var queue = GetQueue("peek-batch-count");
         await CreateQueueAsync(queue);

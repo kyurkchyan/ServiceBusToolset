@@ -34,7 +34,11 @@ public class DiagnoseBatchCommandHandlerShould
     {
         var operations = new List<OperationInfo>
         {
-            new("op-1", DateTimeOffset.UtcNow, "msg-1", "Subject1", "Reason1")
+            new("op-1",
+                DateTimeOffset.UtcNow,
+                "msg-1",
+                "Subject1",
+                "Reason1")
         };
 
         SetupAppInsightsResponse("op-1");
@@ -52,7 +56,11 @@ public class DiagnoseBatchCommandHandlerShould
         var enqueuedTime = DateTimeOffset.UtcNow;
         var operations = new List<OperationInfo>
         {
-            new(operationId, enqueuedTime, "msg-1", "OrderCreated", "MaxDeliveryCountExceeded")
+            new(operationId,
+                enqueuedTime,
+                "msg-1",
+                "OrderCreated",
+                "MaxDeliveryCountExceeded")
         };
 
         var appInsightsResults = new Dictionary<string, DiagnosticResult>
@@ -60,7 +68,14 @@ public class DiagnoseBatchCommandHandlerShould
             [operationId] = new()
             {
                 OperationId = operationId,
-                Exceptions = [new ExceptionInfo { ExceptionType = "TestException", OuterMessage = "Something failed" }]
+                Exceptions =
+                [
+                    new ExceptionInfo
+                    {
+                        ExceptionType = "TestException",
+                        OuterMessage = "Something failed"
+                    }
+                ]
             }
         };
 
@@ -88,16 +103,36 @@ public class DiagnoseBatchCommandHandlerShould
     {
         var operations = new List<OperationInfo>
         {
-            new("op-1", DateTimeOffset.UtcNow, "msg-1", "Subject1", "Reason1"),
-            new("op-2", DateTimeOffset.UtcNow, "msg-2", "Subject2", "Reason2"),
-            new("op-3", DateTimeOffset.UtcNow, "msg-3", "Subject3", "Reason3")
+            new("op-1",
+                DateTimeOffset.UtcNow,
+                "msg-1",
+                "Subject1",
+                "Reason1"),
+            new("op-2",
+                DateTimeOffset.UtcNow,
+                "msg-2",
+                "Subject2",
+                "Reason2"),
+            new("op-3",
+                DateTimeOffset.UtcNow,
+                "msg-3",
+                "Subject3",
+                "Reason3")
         };
 
         var appInsightsResults = new Dictionary<string, DiagnosticResult>
         {
-            ["op-1"] = new() { OperationId = "op-1", Exceptions = [new ExceptionInfo { ExceptionType = "Ex1" }] },
+            ["op-1"] = new()
+            {
+                OperationId = "op-1",
+                Exceptions = [new ExceptionInfo { ExceptionType = "Ex1" }]
+            },
             ["op-2"] = new() { OperationId = "op-2" },
-            ["op-3"] = new() { OperationId = "op-3", FailedDependencies = [new DependencyInfo { Type = "HTTP" }] }
+            ["op-3"] = new()
+            {
+                OperationId = "op-3",
+                FailedDependencies = [new DependencyInfo { Type = "HTTP" }]
+            }
         };
 
         _mockAppInsights.DiagnoseBatchAsync(Arg.Any<IReadOnlyList<(string, DateTimeOffset)>>(),
@@ -117,10 +152,20 @@ public class DiagnoseBatchCommandHandlerShould
     [Fact]
     public async Task PassCorrectOperationsToAppInsights()
     {
-        var enqueuedTime = new DateTimeOffset(2026, 3, 20, 8, 0, 0, TimeSpan.Zero);
+        var enqueuedTime = new DateTimeOffset(2026,
+                                              3,
+                                              20,
+                                              8,
+                                              0,
+                                              0,
+                                              TimeSpan.Zero);
         var operations = new List<OperationInfo>
         {
-            new("op-abc", enqueuedTime, "msg-1", "Subject1", "Reason1")
+            new("op-abc",
+                enqueuedTime,
+                "msg-1",
+                "Subject1",
+                "Reason1")
         };
 
         SetupAppInsightsResponse("op-abc");
@@ -128,19 +173,14 @@ public class DiagnoseBatchCommandHandlerShould
         var command = new DiagnoseBatchCommand("test-resource", operations);
         await _handler.Handle(command, CancellationToken.None);
 
-        await _mockAppInsights.Received(1).DiagnoseBatchAsync(
-            Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(
-                ops => ops.Count == 1 && ops[0].OperationId == "op-abc" && ops[0].EnqueuedTime == enqueuedTime),
-            Arg.Any<Action<int, int>?>(),
-            Arg.Any<CancellationToken>());
+        await _mockAppInsights.Received(1).DiagnoseBatchAsync(Arg.Is<IReadOnlyList<(string OperationId, DateTimeOffset EnqueuedTime)>>(ops => ops.Count == 1 && ops[0].OperationId == "op-abc" && ops[0].EnqueuedTime == enqueuedTime),
+                                                              Arg.Any<Action<int, int>?>(),
+                                                              Arg.Any<CancellationToken>());
     }
 
     private void SetupAppInsightsResponse(string operationId)
     {
-        var results = new Dictionary<string, DiagnosticResult>
-        {
-            [operationId] = new() { OperationId = operationId }
-        };
+        var results = new Dictionary<string, DiagnosticResult> { [operationId] = new() { OperationId = operationId } };
 
         _mockAppInsights.DiagnoseBatchAsync(Arg.Any<IReadOnlyList<(string, DateTimeOffset)>>(),
                                             Arg.Any<Action<int, int>?>(),
