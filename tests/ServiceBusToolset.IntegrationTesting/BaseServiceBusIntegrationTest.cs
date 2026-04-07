@@ -37,7 +37,7 @@ public abstract class BaseServiceBusIntegrationTest : IAsyncDisposable
 
         var services = new ServiceCollection();
 
-        services.AddApplication();
+        services.AddServiceBusToolsetApplication();
 
         services.AddSingleton<IServiceBusClientFactory>(new EmulatorServiceBusClientFactory(fixture.ConnectionString, fixture.AdministrationConnectionString));
 
