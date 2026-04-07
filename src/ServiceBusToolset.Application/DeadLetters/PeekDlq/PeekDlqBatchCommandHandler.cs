@@ -1,4 +1,5 @@
 using Ardalis.Result;
+using Azure;
 using Azure.Messaging.ServiceBus;
 using Mediator;
 using ServiceBusToolset.Application.Common.ServiceBus.Abstractions;
@@ -133,7 +134,7 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
             var subProps = await adminClient.GetSubscriptionRuntimePropertiesAsync(target.Topic!, target.Subscription!);
             return subProps.Value.DeadLetterMessageCount;
         }
-        catch (Azure.RequestFailedException)
+        catch (RequestFailedException)
         {
             // Admin API may not be available in all environments (e.g., emulator, unit tests)
             return 0;

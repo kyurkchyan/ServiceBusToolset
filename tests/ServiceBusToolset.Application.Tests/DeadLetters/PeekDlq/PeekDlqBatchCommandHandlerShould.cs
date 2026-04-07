@@ -204,7 +204,7 @@ public class PeekDlqBatchCommandHandlerShould
 
         _mockFactory.WithMessagesToReturn(messages);
 
-        var command = CreateCommand(500);
+        var command = CreateCommand();
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -229,7 +229,7 @@ public class PeekDlqBatchCommandHandlerShould
 
         _mockFactory.WithMessagesToReturn(messages);
 
-        var command = CreateCommand(500);
+        var command = CreateCommand();
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -245,7 +245,6 @@ public class PeekDlqBatchCommandHandlerShould
 
         var command = new PeekDlqBatchCommand("test.servicebus.windows.net",
                                               EntityTargetBuilder.Queue(),
-                                              500,
                                               KnownDeadLetterCount:42);
 
         var result = await _handler.Handle(command, CancellationToken.None);
