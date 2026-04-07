@@ -1,6 +1,8 @@
+using Azure;
 using Azure.Messaging.ServiceBus;
 using Azure.Messaging.ServiceBus.Administration;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using ServiceBusToolset.Application.Common.ServiceBus.Abstractions;
 
 namespace ServiceBusToolset.Application.Tests.Common.Mocks;
@@ -33,6 +35,12 @@ public class MockServiceBusClientFactory
         // Setup factory to return clients
         Factory.CreateClient(Arg.Any<string>()).Returns(Client);
         Factory.CreateAdministrationClient(Arg.Any<string>()).Returns(AdminClient);
+
+        // Admin API is unavailable in tests (mirrors emulator behavior)
+        AdminClient.GetQueueRuntimePropertiesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                   .ThrowsAsync(new RequestFailedException("Admin API not available"));
+        AdminClient.GetSubscriptionRuntimePropertiesAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                   .ThrowsAsync(new RequestFailedException("Admin API not available"));
 
         // Setup client dispose
         Client.DisposeAsync().Returns(ValueTask.CompletedTask);
