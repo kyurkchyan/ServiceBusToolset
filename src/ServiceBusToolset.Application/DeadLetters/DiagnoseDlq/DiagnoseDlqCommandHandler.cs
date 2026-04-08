@@ -29,6 +29,11 @@ public sealed class DiagnoseDlqCommandHandler(IServiceBusClientFactory clientFac
         DiagnoseDlqCommand command,
         CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrEmpty(command.AppInsightsResourceId))
+        {
+            appInsightsService.Initialize(command.AppInsightsResourceId);
+        }
+
         await using var client = clientFactory.CreateClient(command.FullyQualifiedNamespace);
         await using var receiver = ReceiverFactory.CreateDlqReceiver(client, command.Target);
 
@@ -68,7 +73,6 @@ public sealed class DiagnoseDlqCommandHandler(IServiceBusClientFactory clientFac
         }
         else
         {
-            appInsightsService.Initialize(command.AppInsightsResourceId);
             (results, skipped) = await MessageDiagnostics.DiagnoseMessagesAsync(appInsightsService,
                                                                                 filteredMessages,
                                                                                 command.BatchProgress,

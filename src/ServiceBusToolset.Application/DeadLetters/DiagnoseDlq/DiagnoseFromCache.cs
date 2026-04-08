@@ -18,6 +18,11 @@ public sealed class DiagnoseFromCacheCommandHandler(IAppInsightsService appInsig
         DiagnoseFromCacheCommand command,
         CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrEmpty(command.AppInsightsResourceId))
+        {
+            appInsightsService.Initialize(command.AppInsightsResourceId);
+        }
+
         var messages = command.MessagesToDiagnose.ToList();
 
         if (messages.Count == 0)
@@ -38,7 +43,6 @@ public sealed class DiagnoseFromCacheCommandHandler(IAppInsightsService appInsig
         }
         else
         {
-            appInsightsService.Initialize(command.AppInsightsResourceId);
             (results, skipped) = await MessageDiagnostics.DiagnoseMessagesAsync(appInsightsService,
                                                                                 messages,
                                                                                 command.BatchProgress,
