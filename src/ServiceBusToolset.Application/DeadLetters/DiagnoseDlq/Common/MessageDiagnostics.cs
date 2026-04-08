@@ -58,6 +58,25 @@ internal static class MessageDiagnostics
         return (results, skipped);
     }
 
+    public static List<DiagnosticResult> CreateBasicResults(IReadOnlyList<ServiceBusReceivedMessage> messages)
+    {
+        var results = new List<DiagnosticResult>(messages.Count);
+        foreach (var message in messages)
+        {
+            results.Add(new DiagnosticResult
+            {
+                MessageId = message.MessageId,
+                Subject = message.Subject,
+                DeadLetterReason = message.DeadLetterReason,
+                Body = TryDecodeBody(message),
+                EnqueuedTime = message.EnqueuedTime,
+                OperationId = ExtractOperationId(message)
+            });
+        }
+
+        return results;
+    }
+
     public static string? ExtractOperationId(ServiceBusReceivedMessage message)
     {
         if (message.ApplicationProperties.TryGetValue("Diagnostic-Id", out var diagnosticId) &&

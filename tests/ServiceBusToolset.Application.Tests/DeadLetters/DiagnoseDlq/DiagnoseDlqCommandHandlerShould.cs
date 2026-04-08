@@ -398,6 +398,91 @@ public class DiagnoseDlqCommandHandlerShould
                                                               Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task NotInitializeAppInsightsService_WhenAppInsightsResourceIdIsNull()
+    {
+        // Arrange
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-1")
+                                            .WithDiagnosticId("abc123def456abc123def456abc12345")
+                                            .WithSequenceNumber(1)
+                                            .Build()
+        };
+
+        _mockFactory.WithMessagesToReturn(messages);
+
+        var command = CreateBasicCommand();
+
+        // Act
+        await _handler.Handle(command, TestContext.Current.CancellationToken);
+
+        // Assert
+        _mockAppInsights.DidNotReceive().Initialize(Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ReturnOneResultPerMessage_WhenAppInsightsResourceIdIsNull()
+    {
+        // Arrange
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-1")
+                                            .WithSequenceNumber(1)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-2")
+                                            .WithSequenceNumber(2)
+                                            .Build()
+        };
+
+        _mockFactory.WithMessagesToReturn(messages);
+
+        var command = CreateBasicCommand();
+
+        // Act
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Results.Count.ShouldBe(2);
+        result.Value.SkippedNoOperationId.ShouldBe(0);
+        result.Value.TotalProcessed.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task PopulateDeadLetterReason_WhenAppInsightsResourceIdIsNull()
+    {
+        // Arrange
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-1")
+                                            .WithDeadLetterReason("MaxDeliveryCountExceeded")
+                                            .WithSubject("OrderProcessor")
+                                            .WithSequenceNumber(1)
+                                            .Build()
+        };
+
+        _mockFactory.WithMessagesToReturn(messages);
+
+        var command = CreateBasicCommand();
+
+        // Act
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Results.Count.ShouldBe(1);
+
+        var diagnostic = result.Value.Results.First();
+        diagnostic.MessageId.ShouldBe("msg-1");
+        diagnostic.DeadLetterReason.ShouldBe("MaxDeliveryCountExceeded");
+        diagnostic.Subject.ShouldBe("OrderProcessor");
+    }
+
     private DiagnoseDlqCommand CreateCommand(
         DateTimeOffset? beforeTime = null,
         IReadOnlySet<DlqCategoryKey>? categoryFilter = null) =>
@@ -407,6 +492,12 @@ public class DiagnoseDlqCommandHandlerShould
             100,
             beforeTime,
             categoryFilter);
+
+    private DiagnoseDlqCommand CreateBasicCommand() =>
+        new("test.servicebus.windows.net",
+            EntityTargetBuilder.Queue(),
+            null,
+            100);
 
     private void SetupAppInsightsResponse(string operationId)
     {

@@ -5,6 +5,7 @@ using ServiceBusToolset.Application.Common.ServiceBus.Helpers;
 using ServiceBusToolset.Application.DeadLetters.Common;
 using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Common;
 using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Common.AppInsights;
+using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Models;
 
 namespace ServiceBusToolset.Application.DeadLetters.DiagnoseDlq;
 
@@ -28,9 +29,6 @@ public sealed class DiagnoseDlqCommandHandler(IServiceBusClientFactory clientFac
         DiagnoseDlqCommand command,
         CancellationToken cancellationToken)
     {
-        // Initialize Application Insights connection
-        appInsightsService.Initialize(command.AppInsightsResourceId);
-
         await using var client = clientFactory.CreateClient(command.FullyQualifiedNamespace);
         await using var receiver = ReceiverFactory.CreateDlqReceiver(client, command.Target);
 
@@ -60,11 +58,22 @@ public sealed class DiagnoseDlqCommandHandler(IServiceBusClientFactory clientFac
                                                         0));
         }
 
-        // Diagnose messages
-        var (results, skipped) = await MessageDiagnostics.DiagnoseMessagesAsync(appInsightsService,
+        List<DiagnosticResult> results;
+        int skipped;
+
+        if (string.IsNullOrEmpty(command.AppInsightsResourceId))
+        {
+            results = MessageDiagnostics.CreateBasicResults(filteredMessages);
+            skipped = 0;
+        }
+        else
+        {
+            appInsightsService.Initialize(command.AppInsightsResourceId);
+            (results, skipped) = await MessageDiagnostics.DiagnoseMessagesAsync(appInsightsService,
                                                                                 filteredMessages,
                                                                                 command.BatchProgress,
                                                                                 cancellationToken);
+        }
 
         var resultsWithTelemetry = results
             .Count(r => r.Exceptions.Count > 0 || r.Traces.Count > 0 || r.FailedDependencies.Count > 0);

@@ -100,6 +100,57 @@ public class DiagnoseFromCacheCommandHandlerShould
         _mockAppInsights.Received(1).Initialize("test-resource");
     }
 
+    [Fact]
+    public async Task NotInitializeAppInsightsService_WhenAppInsightsResourceIdIsNull()
+    {
+        // Arrange
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-1")
+                                            .WithDiagnosticId("abc123def456abc123def456abc12345")
+                                            .WithSequenceNumber(1)
+                                            .Build()
+        };
+
+        var command = new DiagnoseFromCacheCommand(null, messages);
+
+        // Act
+        await _handler.Handle(command, TestContext.Current.CancellationToken);
+
+        // Assert
+        _mockAppInsights.DidNotReceive().Initialize(Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ReturnResultForEveryMessage_WhenAppInsightsResourceIdIsNull()
+    {
+        // Arrange
+        var messages = new[]
+        {
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-with-opid")
+                                            .WithDiagnosticId("abc123def456abc123def456abc12345")
+                                            .WithSequenceNumber(1)
+                                            .Build(),
+            ServiceBusReceivedMessageBuilder.Create()
+                                            .WithMessageId("msg-without-opid")
+                                            .WithSequenceNumber(2)
+                                            .Build()
+        };
+
+        var command = new DiagnoseFromCacheCommand(null, messages);
+
+        // Act
+        var result = await _handler.Handle(command, TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Results.Count.ShouldBe(2);
+        result.Value.SkippedNoOperationId.ShouldBe(0);
+        result.Value.TotalProcessed.ShouldBe(2);
+    }
+
     private void SetupAppInsightsResponse(string operationId)
     {
         var results = new Dictionary<string, DiagnosticResult> { [operationId] = new() { OperationId = operationId } };

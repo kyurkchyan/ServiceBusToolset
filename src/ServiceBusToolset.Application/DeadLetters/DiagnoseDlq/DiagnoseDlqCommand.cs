@@ -7,7 +7,7 @@ namespace ServiceBusToolset.Application.DeadLetters.DiagnoseDlq;
 
 public sealed record DiagnoseDlqCommand(string FullyQualifiedNamespace,
                                         EntityTarget Target,
-                                        string AppInsightsResourceId,
+                                        string? AppInsightsResourceId,
                                         int MaxMessages,
                                         DateTimeOffset? BeforeTime = null,
                                         IReadOnlySet<DlqCategoryKey>? CategoryFilter = null,
