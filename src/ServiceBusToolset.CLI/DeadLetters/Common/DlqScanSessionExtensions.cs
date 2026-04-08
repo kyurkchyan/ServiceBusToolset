@@ -21,6 +21,20 @@ public static class DlqScanSessionExtensions
         IConsoleOutput output,
         string entityDescription)
     {
+        // LiveDisplay manipulates the console cursor handle, which throws IOException
+        // when stdout is redirected (e.g., test runners, CI pipelines).
+        // In that case, skip the live UI and just let the scan run to completion.
+        if (Console.IsOutputRedirected)
+        {
+            using (session.CategoryStream.Subscribe(_ => { }))
+            {
+                await session.ScanCompletion.Task;
+                session.StopScanning();
+            }
+
+            return;
+        }
+
         DlqCategorySnapshot latestSnapshot = new([],
                                                  0,
                                                  false,
