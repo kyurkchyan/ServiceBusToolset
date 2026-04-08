@@ -108,6 +108,13 @@ public sealed class PeekDlqBatchCommandHandler(IServiceBusClientFactory clientFa
         // We have more messages if we filled the batch (didn't run out early)
         var hasMore = allMessages.Count >= command.BatchSize && emptyBatches < EmptyBatchThreshold;
 
+        // Fallback for environments where the admin API doesn't report accurate DLQ counts (e.g., emulator).
+        // When we've consumed the entire queue in one pass (!hasMore), the peek count is the ground truth.
+        if (totalDeadLetterCount == 0 && !hasMore)
+        {
+            totalDeadLetterCount = allMessages.Count;
+        }
+
         return Result.Success(new PeekDlqBatchResult(messages,
                                                      allMessages.Count,
                                                      skipped,
