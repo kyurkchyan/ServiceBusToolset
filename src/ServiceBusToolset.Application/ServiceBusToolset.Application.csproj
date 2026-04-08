@@ -1,5 +1,31 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+    <PropertyGroup>
+        <!-- NuGet Package Metadata -->
+        <PackageId>ServiceBusToolset.Application</PackageId>
+        <Authors>Gagik Kyurkchyan</Authors>
+        <Description>Application layer for Azure Service Bus diagnostics: dead letter queue analysis, Application Insights correlation, and message inspection.</Description>
+        <PackageTags>azure;service-bus;dead-letter-queue;diagnostics;application-insights</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/kyurkchyan/ServiceBusToolset</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/kyurkchyan/ServiceBusToolset.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!-- Version - Overridden by CI/CD -->
+        <Version>1.0.0</Version>
+
+        <!-- Source Link -->
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Mediator.Abstractions"/>
         <PackageReference Include="Mediator.SourceGenerator">
@@ -13,6 +39,7 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
         <PackageReference Include="System.Reactive"/>
         <PackageReference Include="DynamicData"/>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All"/>
     </ItemGroup>
 
 </Project>

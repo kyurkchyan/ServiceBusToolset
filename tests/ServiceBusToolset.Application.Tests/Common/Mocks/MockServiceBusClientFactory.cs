@@ -1,6 +1,8 @@
+using Azure;
 using Azure.Messaging.ServiceBus;
 using Azure.Messaging.ServiceBus.Administration;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using ServiceBusToolset.Application.Common.ServiceBus.Abstractions;
 
 namespace ServiceBusToolset.Application.Tests.Common.Mocks;
@@ -33,6 +35,12 @@ public class MockServiceBusClientFactory
         // Setup factory to return clients
         Factory.CreateClient(Arg.Any<string>()).Returns(Client);
         Factory.CreateAdministrationClient(Arg.Any<string>()).Returns(AdminClient);
+
+        // Admin API is unavailable in tests (mirrors emulator behavior)
+        AdminClient.GetQueueRuntimePropertiesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                   .ThrowsAsync(new RequestFailedException("Admin API not available"));
+        AdminClient.GetSubscriptionRuntimePropertiesAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                   .ThrowsAsync(new RequestFailedException("Admin API not available"));
 
         // Setup client dispose
         Client.DisposeAsync().Returns(ValueTask.CompletedTask);
@@ -86,19 +94,14 @@ public class MockServiceBusClientFactory
         _peekCallCount = 0;
         _receiveCallCount = 0;
 
-        // Setup PeekMessagesAsync - returns all messages on first call, empty on subsequent
+        // Setup PeekMessagesAsync - returns messages in pages, respecting maxMessages per call
         Receiver.PeekMessagesAsync(Arg.Any<int>(), Arg.Any<long?>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     var maxMessages = callInfo.ArgAt<int>(0);
-                    _peekCallCount++;
-                    if (_peekCallCount == 1)
-                    {
-                        var batch = _messagesToReturn.Take(maxMessages).ToList();
-                        return Task.FromResult<IReadOnlyList<ServiceBusReceivedMessage>>(batch);
-                    }
-
-                    return Task.FromResult<IReadOnlyList<ServiceBusReceivedMessage>>([]);
+                    var batch = _messagesToReturn.Skip(_peekCallCount).Take(maxMessages).ToList();
+                    _peekCallCount += batch.Count;
+                    return Task.FromResult<IReadOnlyList<ServiceBusReceivedMessage>>(batch);
                 });
 
         // Setup ReceiveMessagesAsync - returns all messages on first call, empty on subsequent

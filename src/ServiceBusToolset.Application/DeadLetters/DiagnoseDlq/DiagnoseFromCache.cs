@@ -3,10 +3,11 @@ using Azure.Messaging.ServiceBus;
 using Mediator;
 using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Common;
 using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Common.AppInsights;
+using ServiceBusToolset.Application.DeadLetters.DiagnoseDlq.Models;
 
 namespace ServiceBusToolset.Application.DeadLetters.DiagnoseDlq;
 
-public sealed record DiagnoseFromCacheCommand(string AppInsightsResourceId,
+public sealed record DiagnoseFromCacheCommand(string? AppInsightsResourceId,
                                               IReadOnlyList<ServiceBusReceivedMessage> MessagesToDiagnose,
                                               IProgress<(int Current, int Total)>? BatchProgress = null) : ICommand<Result<DiagnoseDlqResult>>;
 
@@ -17,7 +18,10 @@ public sealed class DiagnoseFromCacheCommandHandler(IAppInsightsService appInsig
         DiagnoseFromCacheCommand command,
         CancellationToken cancellationToken)
     {
-        appInsightsService.Initialize(command.AppInsightsResourceId);
+        if (!string.IsNullOrEmpty(command.AppInsightsResourceId))
+        {
+            appInsightsService.Initialize(command.AppInsightsResourceId);
+        }
 
         var messages = command.MessagesToDiagnose.ToList();
 
@@ -29,10 +33,21 @@ public sealed class DiagnoseFromCacheCommandHandler(IAppInsightsService appInsig
                                                         0));
         }
 
-        var (results, skipped) = await MessageDiagnostics.DiagnoseMessagesAsync(appInsightsService,
+        List<DiagnosticResult> results;
+        int skipped;
+
+        if (string.IsNullOrEmpty(command.AppInsightsResourceId))
+        {
+            results = MessageDiagnostics.CreateBasicResults(messages);
+            skipped = 0;
+        }
+        else
+        {
+            (results, skipped) = await MessageDiagnostics.DiagnoseMessagesAsync(appInsightsService,
                                                                                 messages,
                                                                                 command.BatchProgress,
                                                                                 cancellationToken);
+        }
 
         var resultsWithTelemetry = results
             .Count(r => r.Exceptions.Count > 0 || r.Traces.Count > 0 || r.FailedDependencies.Count > 0);

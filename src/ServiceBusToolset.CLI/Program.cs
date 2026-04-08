@@ -11,7 +11,7 @@ builder.Logging.ClearProviders();
 
 builder.Services
        .AddSingleton(new CommandLineArguments(args))
-       .AddApplication()
+       .AddServiceBusToolsetApplication()
        .AddCli()
        .AddCommandHandlers()
        .AddHostedService<CommandExecutionService>();

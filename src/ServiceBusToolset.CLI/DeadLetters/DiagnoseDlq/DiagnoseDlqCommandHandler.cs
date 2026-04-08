@@ -30,8 +30,15 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator, IConsoleOutput o
         var target = CreateTarget(command);
         var entityDescription = target.GetDescription();
 
-        Output.Info("Connecting to Application Insights...");
-        Output.Verbose($"Connected to App Insights: {command.AppInsightsResourceId}", verbose);
+        if (!string.IsNullOrEmpty(command.AppInsightsResourceId))
+        {
+            Output.Info("Connecting to Application Insights...");
+            Output.Verbose($"App Insights resource: {command.AppInsightsResourceId}", verbose);
+        }
+        else
+        {
+            Output.Warning("No App Insights resource specified — basic diagnostic mode (dead letter reasons only).");
+        }
 
         if (command.Interactive)
         {
@@ -157,6 +164,23 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator, IConsoleOutput o
             return;
         }
 
+        var basicMode = string.IsNullOrEmpty(cliCommand.AppInsightsResourceId);
+
+        if (basicMode)
+        {
+            Output.Info($"Analyzed {result.TotalProcessed} messages (basic mode — no App Insights)");
+            PrintBasicDiagnosticSummary(result.Results);
+
+            if (!string.IsNullOrEmpty(cliCommand.OutputFile))
+            {
+                var json = JsonSerializer.Serialize(result.Results, JsonOptions);
+                File.WriteAllText(cliCommand.OutputFile, json);
+                Output.Success($"Full diagnostic results written to '{cliCommand.OutputFile}'");
+            }
+
+            return;
+        }
+
         Output.Info($"Queried App Insights for {result.TotalProcessed - result.SkippedNoOperationId} messages (skipped {result.SkippedNoOperationId} without operation ID)");
 
         var resultsWithTelemetry = result.Results
@@ -183,6 +207,45 @@ public sealed class DiagnoseDlqCommandHandler(ISender mediator, IConsoleOutput o
             File.WriteAllText(cliCommand.OutputFile, json);
             Output.Success($"Full diagnostic results written to '{cliCommand.OutputFile}'");
         }
+    }
+
+    private void PrintBasicDiagnosticSummary(IReadOnlyCollection<DiagnosticResult> results)
+    {
+        Output.Info("");
+        Output.Info("Basic Diagnostic Summary (Dead Letter Reasons):");
+        Output.Info("================================================");
+
+        var byReason = results
+                       .GroupBy(r => r.DeadLetterReason ?? "(none)")
+                       .OrderByDescending(g => g.Count())
+                       .ToList();
+
+        var headers = new[]
+        {
+            "Count",
+            "Dead Letter Reason",
+            "Subjects (sample)"
+        };
+        var rows = byReason.Select(g =>
+        {
+            var subjects = g
+                           .Select(r => r.Subject ?? "(none)")
+                           .Where(s => s != "(none)")
+                           .Distinct()
+                           .Take(3)
+                           .ToList();
+            var subjectSample = subjects.Count > 0
+                                    ? string.Join(", ", subjects)
+                                    : "(none)";
+            return new[]
+            {
+                g.Count().ToString(),
+                g.Key,
+                subjectSample
+            };
+        });
+
+        Output.Table(headers, rows);
     }
 
     private void PrintDiagnosticSummary(IReadOnlyCollection<DiagnosticResult> results)

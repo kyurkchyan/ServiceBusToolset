@@ -172,7 +172,7 @@ Each test instance builds a fresh `ServiceCollection`. This mirrors how the prod
         var services = new ServiceCollection();
 
         // 1. Register the full Application layer — Mediator pipeline, DlqMessageService, IAppInsightsService
-        services.AddApplication();
+        services.AddServiceBusToolsetApplication();
 
         // 2. Replace the client factory with the emulator-backed implementation
         services.AddSingleton<IServiceBusClientFactory>(
@@ -384,7 +384,7 @@ public class DiagnoseDlqIntegrationShould(ServiceBusEmulatorFixture fixture)
 }
 ```
 
-**How DI override order works:** `AddApplication()` registers `IAppInsightsService` as scoped (via `services.AddScoped<IAppInsightsService, AppInsightsService>()`). The `configureServices` delegate runs *after* `AddApplication()` and registers an NSubstitute singleton for the same interface. Microsoft's DI container resolves the *last* registration for a given service type, so the mock wins. The real `AppInsightsService` (which requires Azure credentials) is never instantiated.
+**How DI override order works:** `AddServiceBusToolsetApplication()` registers `IAppInsightsService` as scoped (via `services.AddScoped<IAppInsightsService, AppInsightsService>()`). The `configureServices` delegate runs *after* `AddServiceBusToolsetApplication()` and registers an NSubstitute singleton for the same interface. Microsoft's DI container resolves the *last* registration for a given service type, so the mock wins. The real `AppInsightsService` (which requires Azure credentials) is never instantiated.
 
 ### Complete Test Example
 

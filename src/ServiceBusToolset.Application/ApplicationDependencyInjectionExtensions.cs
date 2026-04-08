@@ -6,7 +6,7 @@ namespace ServiceBusToolset.Application;
 
 public static class ApplicationDependencyInjectionExtensions
 {
-    public static IServiceCollection AddApplication(this IServiceCollection services)
+    public static IServiceCollection AddServiceBusToolsetApplication(this IServiceCollection services)
     {
         services.AddMediator(options =>
         {

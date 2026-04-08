@@ -32,9 +32,8 @@ public class DiagnoseDlqCliCommand : ICliCommand
 
     [Option('a',
             "app-insights",
-            Required = true,
-            HelpText = "Application Insights resource ID (e.g., /subscriptions/.../resourceGroups/.../providers/microsoft.insights/components/...)")]
-    public required string AppInsightsResourceId { get; set; }
+            HelpText = "Application Insights resource ID (e.g., /subscriptions/.../resourceGroups/.../providers/microsoft.insights/components/...). If omitted, basic diagnostic using dead letter reasons is performed.")]
+    public string? AppInsightsResourceId { get; set; }
 
     [Option('o',
             "output",
