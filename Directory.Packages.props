@@ -9,7 +9,7 @@
         <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
         <PackageVersion Include="Azure.Monitor.Query" Version="1.7.1" />
         <PackageVersion Include="CommandLineParser" Version="2.9.1" />
-        <PackageVersion Include="coverlet.collector" Version="8.0.1" />
+        <PackageVersion Include="coverlet.collector" Version="10.0.0" />
         <PackageVersion Include="DynamicData" Version="9.4.31" />
         <PackageVersion Include="Mediator.Abstractions" Version="3.0.2" />
         <PackageVersion Include="Mediator.SourceGenerator" Version="3.0.2" />
