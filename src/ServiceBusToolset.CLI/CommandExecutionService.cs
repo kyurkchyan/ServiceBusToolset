@@ -36,8 +36,14 @@ public sealed class CommandExecutionService(CommandLineArguments cliArguments,
                   .WithCommandAsync<MonitorSubscriptionsCliCommand>(cmd => HandleCommandAsync(cmd, stoppingToken))
                   .WithNotParsedAsync(HandleParseErrors);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Console.ResetColor();
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Error.WriteLine();
+            Console.Error.WriteLine($"Unhandled error: {ex.GetType().Name}: {ex.Message}");
+            Console.Error.WriteLine(ex.ToString());
+            Console.ResetColor();
             Environment.ExitCode = 1;
         }
         finally

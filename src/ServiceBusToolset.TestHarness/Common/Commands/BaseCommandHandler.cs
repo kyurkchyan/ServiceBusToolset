@@ -41,6 +41,12 @@ public abstract class BaseCommandHandler<TCommand>(IConsoleOutput output) : ICom
             Output.Warning("\nOperation cancelled.");
             return 1;
         }
+        catch (Exception ex)
+        {
+            Output.Error($"Unexpected error: {ex.GetType().Name}: {ex.Message}");
+            Output.Verbose(ex.ToString(), verbose);
+            return 1;
+        }
     }
 
     protected abstract Task<int> ExecuteCoreAsync(TCommand command, bool verbose, CancellationToken cancellationToken = default);
